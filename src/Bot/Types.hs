@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Bot.Types where
 
@@ -17,6 +19,10 @@ import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
 
 import GHC.Generics (Generic)
 
+newtype ID e = ID { idVal :: Int }
+  deriving stock (Show, Generic)
+  deriving newtype (Read)
+
 newtype Repeat = Repeat Int deriving (Generic, Show)
 
 instance FromJSON Repeat where
@@ -27,6 +33,8 @@ instance FromJSON Repeat where
 
 type URL = Text
 
+type PollingTime = Int
+
 data FrontEnd = Vkontakte | Telegram | Console 
     deriving (Show, Generic, FromJSON)
 
@@ -35,16 +43,14 @@ frontName =
     let fullName = show (typeOf (Proxy @f))
     in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy FrontEnd '" fullName
 
-{-
->>> eitherDecode @(Token 'Vkontakte) "{\"VkontakteToken\" : \"asdasd\"}"
-Left "Error in $: key \"Vkontakte\" not found"
--}
-
 newtype Token (f :: FrontEnd ) = Token Text 
     deriving newtype (Show)
 
 instance Typeable f => FromJSON (Token f) where
     parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
+
+class HasToken f m | m -> f where
+    getToken :: m (Token f)
 
 data NotRequired = NotRequired deriving Show
 
@@ -60,8 +66,3 @@ instance Typeable f => FromJSON (FrontName f) where
         guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
         FrontName <$> parseJSON (String t)
 
-        
--- instance Typeable f => FromJSON (FrontName f) where
---     parseJSON = withText "FrontEnd" $ \t -> do
---         guard $ "Proxy FrontEnd '" <> t ==
---         FrontName <$> parseJSON (String t)

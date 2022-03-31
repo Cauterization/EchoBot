@@ -5,17 +5,32 @@ import Data.Map qualified as M
 import Data.Text (Text)
 
 import FrontEnd.FrontEnd
+import Bot.Config
 import Bot.Types
 
 import Logger.Handle qualified as Logger
+import Logger.IO qualified as Logger
 
-data Env (f :: FrontEnd) m = Env
+data Env (f :: FrontEnd) = Env
     { envLogger         :: Logger.Logger IO
-    , envDefaultReplies :: !Int    
-    , envHelpMes        :: !Text
-    , envRepMes         :: !Text
-    --, envReps           :: IORef (M.Map (User f) Rep)
+    , envDefaultRepeats :: !Repeat    
+    , envHelpMessage    :: !Text
+    , envRepeatMessage  :: !Text
+    , envReps           :: IORef (M.Map (User f) Repeat)
     , envToken          :: WebField f (Token f)
-    --, envConnData       :: WebField f (IORef (ConnData f))
-    , envPollingTime    :: WebField f Int
+    , envConnData       :: IORef (ConnectionData f)
+    , envPollingTime    :: WebField f PollingTime
     }
+
+newEnv :: forall f. IsFrontEnd f
+    => Config f -> IO (Env f)
+newEnv Config{..} = do
+    envReps <- newIORef M.empty  
+    envConnData <- newConnectionData @f @IO cToken >>= newIORef
+    let envLogger         = Logger.fromConfig cLogger
+        envDefaultRepeats = cDefaultRepeats
+        envHelpMessage    = cHelpMessage
+        envRepeatMessage  = cRepeatMessage
+        envToken          = cToken
+        envPollingTime    = cPollingTime
+    pure $ Env{..}

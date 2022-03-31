@@ -41,22 +41,32 @@ dependencies:
 
 default-extensions:
 - AllowAmbiguousTypes
+- ConstraintKinds
 - DataKinds
-- DefaultSignatures 
+- DefaultSignatures
+- DeriveAnyClass
+- DeriveFunctor 
 - DeriveGeneric
+- DerivingStrategies
 - DerivingVia
-- FlexibleContexts 
+- ExistentialQuantification
+- FlexibleContexts
 - FlexibleInstances
-- GeneralizedNewtypeDeriving
+- ImplicitParams
 - ImportQualifiedPost
 - LambdaCase
+- MultiParamTypeClasses
+- OverloadedLabels
 - OverloadedStrings
-- PatternSynonyms
 - RankNTypes
 - RecordWildCards
 - ScopedTypeVariables
+- StandaloneDeriving
 - TypeApplications
-- TypeFamilies 
+- TypeFamilies
+- TypeOperators
+- UndecidableInstances
+
 library:
   source-dirs: src
 

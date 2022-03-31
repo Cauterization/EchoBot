@@ -17,7 +17,7 @@ import Control.Monad.IO.Class
 fromConfig :: Config -> Logger IO
 fromConfig Config{..} v t
     | v < cVerbosity = pure ()
-    | otherwise = liftIO $ formatted >>= T.putStrLn
+    | otherwise = formatted >>= T.putStrLn
   where
     formatted = do 
         utcTime <- getCurrentTime

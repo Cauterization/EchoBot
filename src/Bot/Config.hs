@@ -36,7 +36,7 @@ data Config (f :: FrontEnd) = Config
     , cRepeatMessage  :: !Text
     , cFrontEnd       :: FrontName f
     , cToken          :: WebField  f (Token f)
-    , cPollingTime    :: WebField  f Int
+    , cPollingTime    :: WebField  f PollingTime
     } deriving stock (Generic)
 
 deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) instance 
@@ -49,9 +49,6 @@ deriving instance Show (Config 'Vkontakte)
 deriving instance Show (Config 'Telegram)
 deriving instance Show (Config 'Console)
 
-class HasPollingTime m where
-    getPollingTime :: m Int
-
 confErr :: String
 confErr = "Parsing config error: "
 
@@ -60,10 +57,10 @@ getConfig fp = BL.readFile fp >>= either parsingFail pure . eitherDecode
   where
     parsingFail = fail . (confErr <>) . show 
 
-withConfig :: FilePath -> (forall f. Show (Config f) => Config f -> IO a) -> IO a
+withConfig :: FilePath -> (forall f. (IsFrontEnd f, Show (Config f)) => Config f -> IO a) -> IO a
 withConfig fp f = foldl1 handler $ map ($ fp)
     [ getConfig @'Vkontakte >=> f 
-    , getConfig @'Telegram  >=> f
+    -- , getConfig @'Telegram  >=> f
     , getConfig @'Console   >=> f
     ]
   where

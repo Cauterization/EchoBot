@@ -1,4 +1,36 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Bot.App where
+
+import Control.Monad.Reader
+
+
+
+import Bot.Config
+import Bot.Env
+import Bot.Types
+
+import FrontEnd.FrontEnd
+
+import Extended.HTTP qualified as HTTP
+
+newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
+    deriving newtype ( Functor
+                     , Applicative
+                     , Monad
+                     , MonadReader (Env f)
+                     , MonadIO
+                     , HTTP.MonadHttp 
+                     )
+
+runApp :: forall f. IsFrontEnd f => Show (Config f) => Config f -> IO ()
+runApp c = do
+    env <- newEnv c
+    runReaderT (unApp bot) env
+
+bot :: forall f. IsFrontEnd f => App f ()
+bot = liftIO $ print "hello"
+
 
 -- import Control.Concurrent
 -- import Control.Monad.Catch
@@ -33,14 +65,7 @@ module Bot.App where
 --     , envPollingTime    :: !Int
 --     }
 
--- newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
---     deriving newtype ( Functor
---                      , Applicative
---                      , Monad
---                      , MonadReader (Env f)
---                      , MonadIO
---                      , HTTP.MonadHttp 
---                      )
+
 
 -- instance HasToken (App f) where
 --     getToken = asks envToken

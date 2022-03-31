@@ -21,6 +21,3 @@ run :: IO ()
 run = handle (\(e :: IOException) -> Sys.die $ show e <> ". Terminating...") 
     $ withConfig "config.json" runApp
 
-runApp :: Show (Config f) => Config f -> IO ()
-runApp c = print $ c
-

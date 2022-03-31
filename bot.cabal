@@ -28,35 +28,46 @@ library
       Bot.App
       Bot.Config
       Bot.Env
+      Bot.Error
       Bot.Main
       Bot.Types
+      Extended.HTTP
       Extended.Text
       FrontEnd.FrontEnd
-      Lib
       Logger.Handle
       Logger.IO
+      Vkontakte.FrontEnd
   other-modules:
       Paths_bot
   hs-source-dirs:
       src
   default-extensions:
       AllowAmbiguousTypes
+      ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveAnyClass
+      DeriveFunctor
       DeriveGeneric
+      DerivingStrategies
       DerivingVia
+      ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GeneralizedNewtypeDeriving
+      ImplicitParams
       ImportQualifiedPost
       LambdaCase
+      MultiParamTypeClasses
+      OverloadedLabels
       OverloadedStrings
-      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
+      StandaloneDeriving
       TypeApplications
       TypeFamilies
+      TypeOperators
+      UndecidableInstances
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -86,22 +97,31 @@ executable bot-exe
       app
   default-extensions:
       AllowAmbiguousTypes
+      ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveAnyClass
+      DeriveFunctor
       DeriveGeneric
+      DerivingStrategies
       DerivingVia
+      ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GeneralizedNewtypeDeriving
+      ImplicitParams
       ImportQualifiedPost
       LambdaCase
+      MultiParamTypeClasses
+      OverloadedLabels
       OverloadedStrings
-      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
+      StandaloneDeriving
       TypeApplications
       TypeFamilies
+      TypeOperators
+      UndecidableInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror -fno-warn-unused-imports
   build-depends:
       aeson
@@ -134,22 +154,31 @@ test-suite bot-test
       test
   default-extensions:
       AllowAmbiguousTypes
+      ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveAnyClass
+      DeriveFunctor
       DeriveGeneric
+      DerivingStrategies
       DerivingVia
+      ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GeneralizedNewtypeDeriving
+      ImplicitParams
       ImportQualifiedPost
       LambdaCase
+      MultiParamTypeClasses
+      OverloadedLabels
       OverloadedStrings
-      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
+      StandaloneDeriving
       TypeApplications
       TypeFamilies
+      TypeOperators
+      UndecidableInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
