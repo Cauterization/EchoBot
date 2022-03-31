@@ -11,6 +11,7 @@
     "" : "Vkontakte | Telegram | Console",
     "FrontEnd" : "Vkontakte",
 
+    "" : "n ∈ [1..5]",
     "DefaultRepeats" : 5,
 
     "HelpMessage" : "help_message",
@@ -21,7 +22,7 @@
 
         "Vkontakte" : "vk_token",
 
-        "Telegram" : "tg_toekn"
+        "Telegram" : "tg_token"
 
     },
 
