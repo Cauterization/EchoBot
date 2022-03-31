@@ -52,10 +52,10 @@ default-extensions:
 - OverloadedStrings
 - PatternSynonyms
 - RankNTypes
+- RecordWildCards
 - ScopedTypeVariables
 - TypeApplications
 - TypeFamilies 
-- RecordWildCards
 library:
   source-dirs: src
 
@@ -67,6 +67,9 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
+    - -fno-warn-unused-imports
     dependencies:
     - bot
 

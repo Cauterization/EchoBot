@@ -50,10 +50,10 @@ library
       OverloadedStrings
       PatternSynonyms
       RankNTypes
+      RecordWildCards
       ScopedTypeVariables
       TypeApplications
       TypeFamilies
-      RecordWildCards
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -94,11 +94,11 @@ executable bot-exe
       OverloadedStrings
       PatternSynonyms
       RankNTypes
+      RecordWildCards
       ScopedTypeVariables
       TypeApplications
       TypeFamilies
-      RecordWildCards
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror -fno-warn-unused-imports
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -141,10 +141,10 @@ test-suite bot-test
       OverloadedStrings
       PatternSynonyms
       RankNTypes
+      RecordWildCards
       ScopedTypeVariables
       TypeApplications
       TypeFamilies
-      RecordWildCards
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
