@@ -22,33 +22,10 @@ import Deriving.Aeson (CustomJSON(..), FieldLabelModifier, StripPrefix)
 import GHC.Generics (Generic)
 
 import Logger.Handle qualified as Logger
-import Types
+import Bot.FrontEnd 
+import Bot.Types ( Token )
 
 import qualified Extended.Text as T
-
-type Repet = Int
-
-type Token = Text
-
-data FrontEnd = Vkontakte | Telegram | Console deriving (Show, Generic, FromJSON)
-
-data NotRequired = NotRequired deriving Show
-
-instance FromJSON NotRequired where
-  parseJSON _ = pure NotRequired
-
-newtype FrontName (f :: FrontEnd) = FrontName FrontEnd
-    deriving (Generic)
-    deriving newtype (Show)
-
-instance Typeable f => FromJSON (FrontName f) where
-    parseJSON = withText "FrontEnd" $ \t -> do
-        guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
-        FrontName <$> parseJSON (String t)
-
-type family WebField (f :: FrontEnd) a where
-    WebField 'Console a = NotRequired
-    WebField f        a = a
 
 data Config (f :: FrontEnd) = Config
     { cLogger         :: Logger.Config

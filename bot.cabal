@@ -27,12 +27,13 @@ library
   exposed-modules:
       Bot.App
       Bot.Config
+      Bot.FrontEnd
       Bot.Main
+      Bot.Types
       Extended.Text
       Lib
       Logger.Handle
       Logger.IO
-      Types
   other-modules:
       Paths_bot
   hs-source-dirs:
