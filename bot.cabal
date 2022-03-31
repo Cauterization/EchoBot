@@ -27,10 +27,11 @@ library
   exposed-modules:
       Bot.App
       Bot.Config
-      Bot.FrontEnd
+      Bot.Env
       Bot.Main
       Bot.Types
       Extended.Text
+      FrontEnd.FrontEnd
       Lib
       Logger.Handle
       Logger.IO
@@ -41,6 +42,7 @@ library
   default-extensions:
       AllowAmbiguousTypes
       DataKinds
+      DefaultSignatures
       DeriveGeneric
       DerivingVia
       FlexibleContexts
@@ -85,6 +87,7 @@ executable bot-exe
   default-extensions:
       AllowAmbiguousTypes
       DataKinds
+      DefaultSignatures
       DeriveGeneric
       DerivingVia
       FlexibleContexts
@@ -132,6 +135,7 @@ test-suite bot-test
   default-extensions:
       AllowAmbiguousTypes
       DataKinds
+      DefaultSignatures
       DeriveGeneric
       DerivingVia
       FlexibleContexts

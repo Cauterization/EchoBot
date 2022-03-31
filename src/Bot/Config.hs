@@ -1,11 +1,10 @@
-{-# LANGUAGE  DeriveAnyClass #-}
-{-# LANGUAGE  EmptyDataDeriving #-}
-{-# LANGUAGE  StandaloneDeriving #-}
-{-# LANGUAGE  ViewPatterns #-}
+{-# LANGUAGE EmptyDataDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Bot.Config where 
-    
+
+import Control.Exception (IOException, catch, fromException)
 import Control.Monad
 
 import Data.Aeson
@@ -22,23 +21,30 @@ import Deriving.Aeson (CustomJSON(..), FieldLabelModifier, StripPrefix)
 import GHC.Generics (Generic)
 
 import Logger.Handle qualified as Logger
-import Bot.FrontEnd 
-import Bot.Types ( Token )
+
+import Bot.Types 
+
+import FrontEnd.FrontEnd 
+
+
+
+import GHC.IO.Exception
 
 import qualified Extended.Text as T
 
 data Config (f :: FrontEnd) = Config
     { cLogger         :: Logger.Config
+    , cDefaultRepeats :: Repeat
     , cHelpMessage    :: !Text
     , cRepeatMessage  :: !Text
     , cFrontEnd       :: FrontName f
-    , cToken          :: WebField  f Token
+    , cToken          :: WebField  f (Token f)
     , cPollingTime    :: WebField  f Int
     } deriving stock (Generic)
 
 deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) instance 
     (  Typeable f
-    ,  FromJSON (WebField f Token)
+    ,  FromJSON (WebField f (Token f))
     ,  FromJSON (WebField f Int)) 
     => FromJSON (Config f)
 
@@ -54,17 +60,26 @@ getConfig fp = BL.readFile fp >>= either parsingFail pure . eitherDecode
   where
     parsingFail = fail . ("Parsing config error: " <>) . show 
 
+-- withConfig :: FilePath -> (forall f. Show (Config f) => Config f -> IO a) -> IO a
+-- withConfig fp f = getConfig @'Vkontakte fp >>= f 
+
 withConfig :: FilePath -> (forall f. Show (Config f) => Config f -> IO a) -> IO a
-withConfig fp f = asum $ map ($ fp)
+withConfig fp f = foldl1 g $ map ($ fp)
     [ getConfig @'Vkontakte >=> f 
     , getConfig @'Telegram  >=> f
     , getConfig @'Console   >=> f
     ]
-                                 
+  where
+    g cur next = catch cur $ \(e :: IOException) -> 
+        case ioe_description e of
+            "Parsing config error: \"Error in $.FrontEnd: empty\""  -> next
+            _ -> cur
+
+
+
+                                                
                                                     
-                                                    
-                                                    
-                                                    
+                      
                                                     
                                                     
                                                     

@@ -1,7 +1,67 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Bot.Types where
 
-import Data.Text (Text)
+import Control.Applicative ((<|>), Alternative)
+import Control.Monad (guard, unless)
 
-type Repet = Int
+import Data.Aeson (FromJSON, parseJSON, withText, withObject, Value (Object, String), (.:), eitherDecode)
+import Data.List qualified as L
+import Data.Maybe (fromMaybe)
+import Data.String (IsString(fromString))
 
-type Token = Text
+import Extended.Text (Text)
+import Extended.Text qualified as T
+
+import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
+
+import GHC.Generics (Generic)
+
+newtype Repeat = Repeat Int deriving (Generic, Show)
+
+instance FromJSON Repeat where
+    parseJSON r = do
+        x <- parseJSON @Int r
+        unless (x `elem` [1..5]) $ fail "incorrect number of default repeatitions"
+        pure $ Repeat x
+
+type URL = Text
+
+data FrontEnd = Vkontakte | Telegram | Console 
+    deriving (Show, Generic, FromJSON)
+
+frontName :: forall (f :: FrontEnd) s. (Typeable f, IsString s) => s
+frontName = 
+    let fullName = show (typeOf (Proxy @f))
+    in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy FrontEnd '" fullName
+
+{-
+>>> eitherDecode @(Token 'Vkontakte) "{\"VkontakteToken\" : \"asdasd\"}"
+Left "Error in $: key \"Vkontakte\" not found"
+-}
+
+newtype Token (f :: FrontEnd ) = Token Text 
+    deriving newtype (Show)
+
+instance Typeable f => FromJSON (Token f) where
+    parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
+
+data NotRequired = NotRequired deriving Show
+
+instance FromJSON NotRequired where
+  parseJSON _ = pure NotRequired
+
+newtype FrontName (f :: FrontEnd) = FrontName FrontEnd
+    deriving (Generic)
+    deriving newtype (Show)
+
+instance Typeable f => FromJSON (FrontName f) where
+    parseJSON = withText "FrontEnd" $ \t -> do
+        guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
+        FrontName <$> parseJSON (String t)
+
+        
+-- instance Typeable f => FromJSON (FrontName f) where
+--     parseJSON = withText "FrontEnd" $ \t -> do
+--         guard $ "Proxy FrontEnd '" <> t ==
+--         FrontName <$> parseJSON (String t)

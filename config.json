@@ -1,14 +1,29 @@
 { 
     "Logger":{
+
         "" : "Debug | Info | Warning | Error",
         "Verbosity" : "Debug",
 
         "" : "Display | Write | Both",
         "Mode" : "Display"
     },
-    "Token" : "asdasd",
-    "FrontEnd" : "Console",
+
+    "" : "Vkontakte | Telegram | Console",
+    "FrontEnd" : "Vkontakte",
+
+    "DefaultRepeats" : 5,
+
     "HelpMessage" : "help_message",
+
     "RepeatMessage" : "repat_message",
+
+    "Token" :{
+
+        "Vkontakte" : "vk_token",
+
+        "Telegram" : "tg_toekn"
+
+    },
+
     "PollingTime" : 45
-  }
+}

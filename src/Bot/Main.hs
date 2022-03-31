@@ -18,9 +18,8 @@ import Control.Monad ((>=>))
 -- import qualified Messanger.TG.Main  as TG
 
 run :: IO ()
-run = handle h $ withConfig "config.json" runApp
-  where
-    h (e :: IOException) = Sys.die $ show e <> ". Terminating..."
+run = handle (\(e :: IOException) -> Sys.die $ show e <> ". Terminating...") 
+    $ withConfig "config.json" runApp
 
 runApp :: Show (Config f) => Config f -> IO ()
 runApp c = print $ c
