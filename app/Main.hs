@@ -1,6 +1,6 @@
 module Main where
 
-import Bot.Main qualified as Bot
+import App.Main qualified as App
 
 main :: IO ()
-main = Bot.run
+main = App.run

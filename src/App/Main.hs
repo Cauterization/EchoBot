@@ -1,4 +1,4 @@
-module Bot.Main where
+module App.Main where
 
 import Data.Foldable
 
@@ -9,8 +9,8 @@ import Data.Aeson
 import Data.ByteString.Lazy qualified as BL
 
 import System.Exit qualified as Sys
-import           Bot.App 
-import           Bot.Config 
+import           App.App 
+import           App.Config 
 import Logger.IO qualified
 import Control.Monad ((>=>))
 
@@ -19,5 +19,5 @@ import Control.Monad ((>=>))
 
 run :: IO ()
 run = handle (\(e :: IOException) -> Sys.die $ show e <> ". Terminating...") 
-    $ withConfig "config.json" runApp
+    $ chooseFront "config.json"
 

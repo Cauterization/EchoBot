@@ -1,18 +1,25 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -fno-warn-unused-foralls #-}
 
-module Bot.App where
+module App.App where
 
+import Control.Exception (IOException, fromException)
+import Control.Monad.Catch
 import Control.Monad.Reader
 
+import Data.IORef
 
+import GHC.IO.Exception
 
-import Bot.Config
-import Bot.Env
+import App.Config
+import App.Env
+import Bot.Recieve
 import Bot.Types
 
 import FrontEnd.FrontEnd
 
 import Extended.HTTP qualified as HTTP
+import qualified Logger.Handle as Logger
 
 newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
     deriving newtype ( Functor
@@ -20,17 +27,35 @@ newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
                      , Monad
                      , MonadReader (Env f)
                      , MonadIO
-                     , HTTP.MonadHttp 
+                     , MonadThrow
                      )
 
-runApp :: forall f. IsFrontEnd f => Show (Config f) => Config f -> IO ()
-runApp c = do
-    env <- newEnv c
-    runReaderT (unApp bot) env
+instance HasEnv f (App f) where
+    getToken = asks envToken
+    getConnData = asks envConnData >>= liftIO . readIORef
+    setConnData cd = asks envConnData >>= liftIO . flip writeIORef cd
+    getPollingTime = asks envPollingTime
 
-bot :: forall f. IsFrontEnd f => App f ()
-bot = liftIO $ print "hello"
+instance Logger.HasLogger (App f) where
+    mkLog v t = do
+        l <- asks envLogger 
+        liftIO $  l v t
 
+chooseFront :: FilePath -> IO ()
+chooseFront fp = foldl1 handler [f @'Vkontakte, f @'Telegram, f @'Console]
+  where
+    handler cur next = catch cur $ \e -> 
+        if ioe_description e == confErr <> "\"Error in $.FrontEnd: empty\""
+        then next else cur
+    f :: forall (f :: FrontEnd). IO ()
+    f = getConfig fp  >>= newEnv >>= runReaderT (unApp bot)
+
+bot :: forall f. (IsFrontEnd f, CanRecieveUpdates f (App f)) => App f ()
+bot = do
+    Logger.debug "Getting updates.."
+    updates :: [Update f] <- recieve @f @(App f)
+    liftIO $ print updates
+    pure ()
 
 -- import Control.Concurrent
 -- import Control.Monad.Catch

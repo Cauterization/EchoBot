@@ -25,11 +25,12 @@ source-repository head
 
 library
   exposed-modules:
-      Bot.App
-      Bot.Config
-      Bot.Env
+      App.App
+      App.Config
+      App.Env
+      App.Main
       Bot.Error
-      Bot.Main
+      Bot.Recieve
       Bot.Types
       Extended.HTTP
       Extended.Text

@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Extended.HTTP 
     ( module Network.HTTP.Types.URI
@@ -15,7 +16,8 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import Data.Functor
 import Data.Aeson
-import qualified Extended.Text as T
+import Extended.Text (Text)
+import Extended.Text qualified as T
 import Network.HTTP.Types.URI ( urlEncode )
 import Network.HTTP.Client.Conduit (HttpException(..), HttpExceptionContent(..))
 import Network.HTTP.Simple
@@ -29,10 +31,10 @@ percentEncode :: ToJSON a => a -> T.Text
 percentEncode = T.pack . BS8.unpack . urlEncode True . BSL.toStrict . encode
 
 class MonadHttp m where
-    tryRequest :: String -> m BSL.ByteString
+    tryRequest :: Text -> m BSL.ByteString
 
 instance MonadIO m => MonadHttp m where
-    tryRequest initReq = liftIO $ do
+    tryRequest (T.unpack -> initReq) = liftIO $ do
             req <- parseRequest initReq
             print req
             resp <- httpBS req <&> BSL.fromStrict . getResponseBody

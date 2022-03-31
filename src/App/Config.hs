@@ -2,9 +2,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Bot.Config where 
+module App.Config where 
 
-import Control.Exception (IOException, catch, fromException)
+
 import Control.Monad ( (>=>), MonadPlus (mzero) )
 
 import Data.Aeson
@@ -25,8 +25,6 @@ import Bot.Types
 
 import FrontEnd.FrontEnd 
 
-import GHC.IO.Exception
-
 import qualified Extended.Text as T
 
 data Config (f :: FrontEnd) = Config
@@ -35,15 +33,15 @@ data Config (f :: FrontEnd) = Config
     , cHelpMessage    :: !Text
     , cRepeatMessage  :: !Text
     , cFrontEnd       :: FrontName f
-    , cToken          :: WebField  f (Token f)
-    , cPollingTime    :: WebField  f PollingTime
+    , cToken          :: WebOnly   f (Token f)
+    , cPollingTime    :: WebOnly   f PollingTime
     } deriving stock (Generic)
 
 deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) instance 
     (  Typeable f
-    ,  FromJSON (WebField f (Token f))
-    ,  FromJSON (WebField f Int)) 
-    => FromJSON (Config f)
+    ,  FromJSON (WebOnly f (Token f))
+    ,  FromJSON (WebOnly f Int)) 
+    => FromJSON (Config  f)
 
 deriving instance Show (Config 'Vkontakte)
 deriving instance Show (Config 'Telegram)
@@ -57,16 +55,6 @@ getConfig fp = BL.readFile fp >>= either parsingFail pure . eitherDecode
   where
     parsingFail = fail . (confErr <>) . show 
 
-withConfig :: FilePath -> (forall f. (IsFrontEnd f, Show (Config f)) => Config f -> IO a) -> IO a
-withConfig fp f = foldl1 handler $ map ($ fp)
-    [ getConfig @'Vkontakte >=> f 
-    -- , getConfig @'Telegram  >=> f
-    , getConfig @'Console   >=> f
-    ]
-  where
-    handler cur next = catch cur $ \e -> 
-        if ioe_description e == confErr <> "\"Error in $.FrontEnd: empty\""
-        then next else cur
 
 
 

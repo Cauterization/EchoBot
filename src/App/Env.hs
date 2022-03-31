@@ -1,11 +1,11 @@
-module Bot.Env where
+module App.Env where
 
 import Data.IORef
 import Data.Map qualified as M
 import Data.Text (Text)
 
 import FrontEnd.FrontEnd
-import Bot.Config
+import App.Config
 import Bot.Types
 
 import Logger.Handle qualified as Logger
@@ -17,9 +17,9 @@ data Env (f :: FrontEnd) = Env
     , envHelpMessage    :: !Text
     , envRepeatMessage  :: !Text
     , envReps           :: IORef (M.Map (User f) Repeat)
-    , envToken          :: WebField f (Token f)
+    , envToken          :: WebOnly f (Token f)
     , envConnData       :: IORef (ConnectionData f)
-    , envPollingTime    :: WebField f PollingTime
+    , envPollingTime    :: WebOnly f PollingTime
     }
 
 newEnv :: forall f. IsFrontEnd f

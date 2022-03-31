@@ -20,8 +20,7 @@ import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
 import GHC.Generics (Generic)
 
 newtype ID e = ID { idVal :: Int }
-  deriving stock (Show, Generic)
-  deriving newtype (Read)
+  deriving newtype (Show, Eq, Ord, Read, Enum, FromJSON)
 
 newtype Repeat = Repeat Int deriving (Generic, Show)
 
@@ -48,9 +47,6 @@ newtype Token (f :: FrontEnd ) = Token Text
 
 instance Typeable f => FromJSON (Token f) where
     parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
-
-class HasToken f m | m -> f where
-    getToken :: m (Token f)
 
 data NotRequired = NotRequired deriving Show
 
