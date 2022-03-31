@@ -1,0 +1,14 @@
+{ 
+    "Logger":{
+        "" : "Debug | Info | Warning | Error",
+        "Verbosity" : "Debug",
+
+        "" : "Display | Write | Both",
+        "Mode" : "Display"
+    },
+    "Token" : "asdasd",
+    "FrontEnd" : "Console",
+    "HelpMessage" : "help_message",
+    "RepeatMessage" : "repat_message",
+    "PollingTime" : 45
+  }
