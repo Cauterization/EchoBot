@@ -1,7 +1,8 @@
 .stack-work/
 .vscode
 .history
-config.json
+.json
 *~
 
 config.json
+*.json

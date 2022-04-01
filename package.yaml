@@ -52,6 +52,7 @@ default-extensions:
 - ExistentialQuantification
 - FlexibleContexts
 - FlexibleInstances
+- GADTs
 - ImplicitParams
 - ImportQualifiedPost
 - LambdaCase

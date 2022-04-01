@@ -12,34 +12,33 @@ import Extended.Text qualified as T
 import Extended.HTTP qualified as HTTP
 
 import FrontEnd.FrontEnd
+import Console.FrontEnd qualified as Console
 
 import Bot.Error
 import Bot.Types
 
-class IsFrontEnd f => CanRecieveUpdates (f :: FrontEnd) (m :: * -> *) | m -> f where
-    recieve :: m [Update f]
+class FrontEndIO (f :: FrontEnd) (m :: * -> *) where
+    mkRequest :: m (Response f)
 
-instance MonadIO m => CanRecieveUpdates 'Console m where
-    recieve = liftIO T.getLine <&> extractUpdates
+instance MonadIO m => FrontEndIO 'Console m where
+    mkRequest = liftIO T.getLine
+
+class ( IsWebFrontEnd f 
+      ) => HasWebEnv (f :: FrontEnd) m | m -> f where
+    getConnData    :: m (ConnectionData f)
+    setConnData    :: ConnectionData f -> m ()
+    getToken       :: m (Token f)
+    getPollingTime :: m PollingTime
 
 instance {-# OVERLAPPABLE #-}
     ( IsFrontEnd f
     , Monad m
     , HTTP.MonadHttp m
     , MonadThrow m
-    , HasEnv f m
-    , WebOnly f URL ~ URL
-    , WebOnly f (Token f) ~ Token f
-    , WebOnly f (ConnectionData f) ~ ConnectionData f
-    , WebOnly f PollingTime ~ PollingTime
+    , HasWebEnv f m
     , FromJSON (Response f)
     ) 
-    => CanRecieveUpdates (f :: FrontEnd) m where
-    recieve = do
-        token    <- getToken
-        connData <- getConnData 
-        polling  <- getPollingTime
-        response <- HTTP.tryRequest (getUpdatesURL @f token connData polling)
-        parse @(Response f) response >>= \case
-            GoodResponse g -> pure $ extractUpdates g
-            BadResponse b  -> throwM $ BadResponseErr @f b
+    => FrontEndIO (f :: FrontEnd) m where
+    mkRequest = getUpdatesURL @f <$> getToken <*> getConnData <*> getPollingTime 
+        >>= HTTP.tryRequest >>= parse
+

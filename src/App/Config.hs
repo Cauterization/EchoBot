@@ -43,8 +43,8 @@ deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) ins
     ,  FromJSON (WebOnly f Int)) 
     => FromJSON (Config  f)
 
-deriving instance Show (Config 'Vkontakte)
-deriving instance Show (Config 'Telegram)
+-- deriving instance Show (Config 'Vkontakte)
+-- deriving instance Show (Config 'Telegram)
 deriving instance Show (Config 'Console)
 
 confErr :: String

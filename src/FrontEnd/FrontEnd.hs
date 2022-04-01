@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FunctionalDependencies  #-}
+{-# LANGUAGE GADTs  #-}
 {-# LANGUAGE TypeFamilyDependencies   #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -8,7 +9,7 @@ module FrontEnd.FrontEnd where
 import Control.Monad (guard, (>=>))
 import Control.Monad.Catch
 
-import Data.Aeson ( withText, FromJSON(parseJSON), Value(String) )
+import Data.Aeson ( withText, FromJSON(parseJSON), Value(String), GFromJSON, Zero )
 import Data.Kind (Type, Constraint)
 import Data.Typeable (Typeable, typeOf, Proxy (..))
 
@@ -16,26 +17,24 @@ import Extended.Text (Text)
 import Extended.Text qualified as T
 import Extended.HTTP qualified as HTTP
 
-import GHC.Generics (Generic)
+import GHC.Generics (Generic (Rep))
 
 import Bot.Error
 import Bot.Types
 
 import Vkontakte.FrontEnd qualified as VK
+import FrontEnd.Web
 import Control.Applicative
 import Control.Monad.IO.Class
 import Data.Functor
+import qualified Console.FrontEnd as Console
+import Deriving.Aeson
 
 type family WebOnly (f :: FrontEnd) a where
     WebOnly 'Console a = NotRequired
     WebOnly f        a = a
 
-type family FrontConstraint (f :: FrontEnd) (m :: Type -> Type) :: Constraint where
-    FrontConstraint 'Console _ = ()
-    FrontConstraint f        m = (HTTP.MonadHttp m)
-
-class (Show (BadResponse f), Typeable f) 
-    => IsFrontEnd (f :: FrontEnd) where 
+class (Show (Response f)) => IsFrontEnd (f :: FrontEnd) where 
 
     type User f :: Type
 
@@ -44,40 +43,60 @@ class (Show (BadResponse f), Typeable f)
     newConnectionData :: forall m. (Monad m, MonadThrow m) 
         => WebOnly f (Token f) -> IO (ConnectionData f)
 
-    getUpdatesURL :: WebOnly f (Token f) 
-                  -> WebOnly f (ConnectionData f) 
-                  -> WebOnly f PollingTime 
-                  -> WebOnly f URL
+    type Response f :: Type
 
-    type GoodResponse f :: Type
+    -- type BadResponse f :: Type
 
-    type BadResponse f :: Type
+    type SendHelp f :: Type
+    type SendKeyboard f :: Type
+    type UpdateRepeats f :: Type
+    type HideKeyboard f :: Type
 
-    extractUpdates :: GoodResponse f -> [Update f]
+    getActions :: Response f -> [Action f]
 
-data Response (f :: FrontEnd) 
-    = GoodResponse (GoodResponse f)
-    | BadResponse  (BadResponse  f)
-    deriving Generic
+-- data Response (f :: FrontEnd) 
+--     = GoodResponse (GoodResponse f) 
+--     | BadResponse (BadResponse f) 
+--     deriving Generic
+-- deriving via CustomJSON '[ SumUntaggedValue ] (Response f) 
+--     instance (FromJSON (GoodResponse f), FromJSON (BadResponse f)) 
+--         => FromJSON (Response f) 
 
-instance (FromJSON (GoodResponse f), FromJSON (BadResponse f), Generic (Response f)) 
-    => (FromJSON (Response (f :: FrontEnd))) where
-    parseJSON v = GoodResponse <$> parseJSON @(GoodResponse f) v
-              <|> BadResponse  <$> parseJSON @(BadResponse  f) v
+-- instance (FromJSON (GoodResponse f), FromJSON (BadResponse f), Generic (Response f)) 
+--     => (FromJSON (Response (f :: FrontEnd))) where
+--     parseJSON v = GoodResponse <$> parseJSON @(GoodResponse f) v
+--               <|> BadResponse  <$> parseJSON @(BadResponse  f) v
 
-class HasEnv (f :: FrontEnd) m | m -> f where
-    getConnData    :: m (ConnectionData f)
-    setConnData    :: ConnectionData f -> m ()
-    getToken       :: m (WebOnly f (Token f))
-    getPollingTime :: m (WebOnly f PollingTime)
+data Action (f :: FrontEnd) where
+    SendHelp      :: SendHelp f -> Action f
+    SendKeyboard  :: SendKeyboard f -> Action f
+    UpdateRepeats :: UpdateRepeats f -> Action f
+    HideKeyboard  :: HideKeyboard f -> Action f
+        
+-- data FrontEndError f = BadResponseErr (BadResponse f) 
+-- deriving instance Show (BadResponse f) => Show (FrontEndError f)
+-- deriving instance (Show (BadResponse f), Typeable f) => Exception (FrontEndError f)
 
-data FrontEndError f = BadResponseErr (BadResponse f) 
-deriving instance Show (BadResponse f) => Show (FrontEndError f)
-deriving instance (Show (BadResponse f), Typeable f) => Exception (FrontEndError f)
+-- data Update f 
+--     = SendEcho         (SendEcho f)
+--     | SendHelp         (SendHelp f)
+--     | SendKeyboard (SendKeyboard f)
+--     | HideKeyboard (HideKeyboard f)
+--     | DoNothing 
+    
+-- instance ( Show (SendEcho f)
+--          , Show (SendHelp f)
+--          , Show (SendKeyboard f)
+--          , Show (HideKeyboard f)
+--          ) => Show (Update f) where
+--     show = \case
+--         SendEcho s -> show s
+--         SendHelp s ->  show s
+--         SendKeyboard s ->  show s
+--         HideKeyboard s ->  show s
+--         DoNothing -> "DoNothing"
 
-data Update (f :: FrontEnd) = X () deriving Show
-
-instance (Show (Update f)) => IsFrontEnd 'Console where
+instance IsFrontEnd 'Console where
 
     type User 'Console = ()
 
@@ -85,11 +104,24 @@ instance (Show (Update f)) => IsFrontEnd 'Console where
 
     newConnectionData _ = pure NotRequired
 
-    getUpdatesURL _ _ _ = NotRequired
+    type Response 'Console = Text
 
-    type GoodResponse 'Console = Text
+class ( WebOnly f URL ~ URL
+      , WebOnly f (Token f) ~ Token f
+      , WebOnly f (ConnectionData f) ~ ConnectionData f
+      , WebOnly f PollingTime ~ PollingTime) 
+      => IsWebFrontEnd (f :: FrontEnd) where
 
-    type BadResponse 'Console = NotRequired
+    getUpdatesURL :: Token f -> ConnectionData f -> PollingTime -> URL
+
+    type BadResponse f :: Type
+
+    -- type BadResponse 'Console = NotRequired
+
+    -- type SendEcho     'Console = NotRequired
+    -- type SendHelp     'Console = NotRequired
+    -- type SendKeyboard 'Console = NotRequired
+    -- type HideKeyboard 'Console = NotRequired
 
 instance IsFrontEnd 'Vkontakte where
 
@@ -99,20 +131,23 @@ instance IsFrontEnd 'Vkontakte where
 
     newConnectionData = VK.newConnectionData
 
-    getUpdatesURL = VK.getUpdatesURL
+    type Response 'Vkontakte = VK.GoodResponse
 
-    type GoodResponse 'Vkontakte = VK.GoodResponse
+instance IsWebFrontEnd 'Vkontakte where
+
+    getUpdatesURL = VK.getUpdatesURL
 
     type BadResponse 'Vkontakte = VK.BadResponse
 
+    -- 
 
+    -- type Command 'Vkontakte = VK.Command
 
-
-
+    -- getActions = VK.getActions
 
 -------------------------------------------------
 
-instance IsFrontEnd 'Telegram where
+-- instance IsFrontEnd 'Telegram where
 
-    type GoodResponse 'Telegram = ()
-    type BadResponse 'Telegram = ()
+--     type  GoodResponse 'Telegram = ()
+--     type BadResponse 'Telegram = ()

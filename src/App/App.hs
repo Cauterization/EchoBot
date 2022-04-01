@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# OPTIONS_GHC -fno-warn-unused-foralls #-}
 
 module App.App where
 
@@ -19,7 +18,8 @@ import Bot.Types
 import FrontEnd.FrontEnd
 
 import Extended.HTTP qualified as HTTP
-import qualified Logger.Handle as Logger
+import  Logger.Handle ((.<))
+import  Logger.Handle qualified as Logger
 
 newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
     deriving newtype ( Functor
@@ -30,7 +30,8 @@ newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
                      , MonadThrow
                      )
 
-instance HasEnv f (App f) where
+instance ( IsWebFrontEnd f
+         ) => HasWebEnv f (App f) where
     getToken = asks envToken
     getConnData = asks envConnData >>= liftIO . readIORef
     setConnData cd = asks envConnData >>= liftIO . flip writeIORef cd
@@ -42,20 +43,29 @@ instance Logger.HasLogger (App f) where
         liftIO $  l v t
 
 chooseFront :: FilePath -> IO ()
-chooseFront fp = foldl1 handler [f @'Vkontakte, f @'Telegram, f @'Console]
+chooseFront fp = foldl1 handler 
+    [ getConfig @'Vkontakte fp >>= newEnv >>= runReaderT (unApp bot)
+    -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp bot)
+    , getConfig @'Console   fp >>= newEnv >>= runReaderT (unApp bot)
+    ]
   where
     handler cur next = catch cur $ \e -> 
         if ioe_description e == confErr <> "\"Error in $.FrontEnd: empty\""
-        then next else cur
-    f :: forall (f :: FrontEnd). IO ()
-    f = getConfig fp  >>= newEnv >>= runReaderT (unApp bot)
+        then undefined else error "r"
 
-bot :: forall f. (IsFrontEnd f, CanRecieveUpdates f (App f)) => App f ()
+bot :: forall f. (IsFrontEnd f, FrontEndIO f (App f)) => App f ()
 bot = do
-    Logger.debug "Getting updates.."
-    updates :: [Update f] <- recieve @f @(App f)
-    liftIO $ print updates
-    pure ()
+    Logger.info "Getting updates.."
+    response <- mkRequest @f
+    Logger.debug $ "Recieved response:\n" .< response
+    execute $ getActions response
+
+execute :: forall f. [Action f] -> App f ()
+execute [] = Logger.info "No new updates."
+execute us = do
+    Logger.info $ "Recieved " .< length us <> " new updates."
+    forM_ us $ \case
+        SendHelp x -> undefined
 
 -- import Control.Concurrent
 -- import Control.Monad.Catch

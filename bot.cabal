@@ -29,14 +29,18 @@ library
       App.Config
       App.Env
       App.Main
+      Bot.Commands
       Bot.Error
       Bot.Recieve
       Bot.Types
+      Console.FrontEnd
       Extended.HTTP
       Extended.Text
       FrontEnd.FrontEnd
+      FrontEnd.Web
       Logger.Handle
       Logger.IO
+      Vkontakte.Commands
       Vkontakte.FrontEnd
   other-modules:
       Paths_bot
@@ -55,6 +59,7 @@ library
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
@@ -109,6 +114,7 @@ executable bot-exe
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
@@ -166,6 +172,7 @@ test-suite bot-test
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase

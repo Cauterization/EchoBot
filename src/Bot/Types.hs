@@ -34,7 +34,10 @@ type URL = Text
 
 type PollingTime = Int
 
-data FrontEnd = Vkontakte | Telegram | Console 
+data FrontEnd 
+    = Vkontakte 
+    -- | Telegram
+    | Console 
     deriving (Show, Generic, FromJSON)
 
 frontName :: forall (f :: FrontEnd) s. (Typeable f, IsString s) => s

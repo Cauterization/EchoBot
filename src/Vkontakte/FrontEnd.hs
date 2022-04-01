@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Vkontakte.FrontEnd where
 
@@ -16,6 +18,12 @@ import Control.Monad.Catch
 import Data.Functor ((<&>))
 import Control.Applicative
 import Deriving.Aeson
+    ( Generic,
+      CamelToSnake,
+      CustomJSON(CustomJSON),
+      FieldLabelModifier,
+      StripPrefix )
+import Data.Traversable
 
 data User
 type Key       = T.Text
@@ -95,3 +103,17 @@ data BadResponse = BadResponse {failed :: !ErrorCode, brTs :: !(Maybe Ts)}
         CustomJSON '[ FieldLabelModifier CamelToSnake
                     , FieldLabelModifier (StripPrefix "br")
                     ] BadResponse
+
+pattern RepeatUpdate, HelpUpdate :: ID User -> Update
+pattern RepeatUpdate uID 
+    <- Update Message{from_id = uID, text = "/repeat"}
+pattern HelpUpdate uID 
+    <- Update Message{from_id = uID, text = "/help"}
+
+-- data Command = SendEchoCommand      Message
+--              | SendHelpCommand      (ID User)
+--              | SendKeyboardCommand  (ID User)
+--              | UpdateRepeatsCommand (ID User) Repeat
+--              | HideKeyboardCommand  (ID User)
+--              | DoNothingCommand
+    -- Trash t               -> [DoNothing]
