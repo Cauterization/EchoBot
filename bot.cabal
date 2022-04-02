@@ -30,6 +30,7 @@ library
       App.Env
       App.Main
       Bot.Action
+      Bot.Bot
       Bot.Error
       Bot.Types
       Console.FrontEnd

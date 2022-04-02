@@ -22,7 +22,6 @@ import FrontEnd.FrontEnd qualified as Front
 import Vkontakte.FrontEnd 
 
 import Bot.Error
-import Control.Monad.IO.Class (MonadIO)
 import GHC.Generics
 import Data.Aeson
 

@@ -29,7 +29,7 @@ instance IsFrontEnd Console where
 
     getActions = pure . pure . getAction
 
-instance MonadIO m => FrontEndIO Console m where
+instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     
     getUpdates = fmap pure $ liftIO $ T.getLine
 

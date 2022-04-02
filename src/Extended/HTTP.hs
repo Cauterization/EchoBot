@@ -33,7 +33,7 @@ percentEncode = T.pack . BS8.unpack . urlEncode True . BSL.toStrict . encode
 class MonadHttp m where
     tryRequest :: Text -> m BSL.ByteString
 
-instance MonadIO m => MonadHttp m where
+instance {-# OVERLAPPING #-}MonadIO m => MonadHttp m where
     tryRequest (T.unpack -> initReq) = liftIO $ do
             req <- parseRequest initReq
             print req
