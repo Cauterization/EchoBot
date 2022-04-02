@@ -34,34 +34,3 @@ type URL = Text
 
 type PollingTime = Int
 
-data FrontEnd 
-    = Vkontakte 
-    -- | Telegram
-    | Console 
-    deriving (Show, Generic, FromJSON)
-
-frontName :: forall (f :: FrontEnd) s. (Typeable f, IsString s) => s
-frontName = 
-    let fullName = show (typeOf (Proxy @f))
-    in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy FrontEnd '" fullName
-
-newtype Token (f :: FrontEnd ) = Token Text 
-    deriving newtype (Show)
-
-instance Typeable f => FromJSON (Token f) where
-    parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
-
-data NotRequired = NotRequired deriving Show
-
-instance FromJSON NotRequired where
-  parseJSON _ = pure NotRequired
-
-newtype FrontName (f :: FrontEnd) = FrontName FrontEnd
-    deriving (Generic)
-    deriving newtype (Show)
-
-instance Typeable f => FromJSON (FrontName f) where
-    parseJSON = withText "FrontEnd" $ \t -> do
-        guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
-        FrontName <$> parseJSON (String t)
-

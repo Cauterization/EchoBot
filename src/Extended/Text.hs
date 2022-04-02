@@ -4,6 +4,7 @@ module Extended.Text
     , module Data.Text.Encoding
     , module Text.Read
     , show
+    , read
     ) where
 
 import Data.Text
@@ -15,3 +16,6 @@ import Prelude qualified
 
 show :: Show a => a -> Text
 show = pack . Prelude.show
+
+read :: Read a => Text -> a
+read = Prelude.read . unpack

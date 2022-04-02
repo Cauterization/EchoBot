@@ -12,10 +12,16 @@ import GHC.IO.Exception
 
 import App.Config
 import App.Env
-import Bot.Recieve
+
+import Bot.Action
 import Bot.Types
 
+import Console.FrontEnd
+
 import FrontEnd.FrontEnd
+import FrontEnd.Web
+
+import Vkontakte.Web qualified as VK
 
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
@@ -33,8 +39,8 @@ newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
 instance ( IsWebFrontEnd f
          ) => HasWebEnv f (App f) where
     getToken = asks envToken
-    getConnData = asks envConnData >>= liftIO . readIORef
-    setConnData cd = asks envConnData >>= liftIO . flip writeIORef cd
+    getFrontData = asks envFrontData >>= liftIO . readIORef
+    setFrontData fd = asks envFrontData >>= liftIO . flip writeIORef fd
     getPollingTime = asks envPollingTime
 
 instance Logger.HasLogger (App f) where
@@ -44,28 +50,27 @@ instance Logger.HasLogger (App f) where
 
 chooseFront :: FilePath -> IO ()
 chooseFront fp = foldl1 handler 
-    [ getConfig @'Vkontakte fp >>= newEnv >>= runReaderT (unApp bot)
-    -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp bot)
-    , getConfig @'Console   fp >>= newEnv >>= runReaderT (unApp bot)
+    [ getConfig @'Vkontakte fp >>= newEnv >>= runReaderT (unApp app)
+    -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp app)
+    , getConfig @'Console   fp >>= newEnv >>= runReaderT (unApp app)
     ]
   where
     handler cur next = catch cur $ \e -> 
         if ioe_description e == confErr <> "\"Error in $.FrontEnd: empty\""
-        then undefined else error "r"
+        then cur else next
 
-bot :: forall f. (IsFrontEnd f, FrontEndIO f (App f)) => App f ()
-bot = do
+app :: forall f. (IsFrontEnd f, FrontEndIO f (App f)) => App f ()
+app = do
     Logger.info "Getting updates.."
-    response <- mkRequest @f
-    Logger.debug $ "Recieved response:\n" .< response
-    execute $ getActions response
+    updates <- getUpdates 
+    Logger.info $ "Recieved " .< length updates <> " new updates."
+    forM_ (map getAction updates) $ \case
+        SendEcho user se -> undefined
+        -- SendHelp sh -> undefined
+        -- UpdateRepeats u r -> undefined
+        -- SendKeyboard sk -> undefined
+        -- HideKeyboard hk -> undefined
 
-execute :: forall f. [Action f] -> App f ()
-execute [] = Logger.info "No new updates."
-execute us = do
-    Logger.info $ "Recieved " .< length us <> " new updates."
-    forM_ us $ \case
-        SendHelp x -> undefined
 
 -- import Control.Concurrent
 -- import Control.Monad.Catch
@@ -82,8 +87,8 @@ execute us = do
 -- import Extended.Text(Text)
 -- import qualified Extended.HTTP as HTTP
 -- import qualified Extended.Text as T
--- import Bot.Config
--- import Bot.Bot
+-- import app.Config
+-- import app.app
 -- import qualified Logger.Handle as Logger
 
 -- import FrontEnd.FrontEnd (FrontEnd)
@@ -106,7 +111,7 @@ execute us = do
 --     getToken = asks envToken
 
 -- instance FrontEnd f => HasConnectionData f (App f) where
---     getConnData = asks envConnData >>= liftIO . readIORef
+--     FrontData = asks envConnData >>= liftIO . readIORef
 --     setConnData cd = asks envConnData >>= liftIO . flip writeIORef cd
 
 -- instance FrontEnd f => HasReps f (App f) where
@@ -149,25 +154,25 @@ execute us = do
 --             , envReps           = reps
 --             , envPollingTime    = cPollingTime 
 --             } :: Env f
---     runReaderT (runBot @f) env
+--     runReaderT (runapp @f) env
 
--- data StopBot = StopBot deriving (Show, Typeable, Exception)
+-- data Stopapp = Stopapp deriving (Show, Typeable, Exception)
 
--- runBot :: forall f a. (FrontEnd f, MonadCatch a) => a ()
--- runBot = handle (\StopBot -> pure ()) $ forever $ 
---     bot @f
+-- runapp :: forall f a. (FrontEnd f, MonadCatch a) => a ()
+-- runapp = handle (\Stopapp -> pure ()) $ forever $ 
+--     app @f
 
--- bot :: forall a b. b ()
--- bot = undefined
+-- app :: forall a b. b ()
+-- app = undefined
 
--- -- bot :: forall b a . (MonadThrow a, MonadCatch a) => a ()
--- -- bot = flip catches (handler @b) $ do       
+-- -- app :: forall b a . (MonadThrow a, MonadCatch a) => a ()
+-- -- app = flip catches (handler @b) $ do       
 -- --     Logger.info "Getting updates..."
 -- --     response <- updateURL @b >>= HTTP.tryRequest
 -- --     Logger.debug $ "Recieved JSON: " <> T.decodeUtf8 (BSL.toStrict response)
--- --     botResponse <- either (throwM . ParsingError . T.pack) pure $ eitherDecode response 
--- --     extractConnData @b botResponse >>= updateConnData
--- --     updates <- withBadResponseHandling botResponse >>= parseUpdates
+-- --     appResponse <- either (throwM . ParsingError . T.pack) pure $ eitherDecode response 
+-- --     extractConnData @b appResponse >>= updateConnData
+-- --     updates <- withBadResponseHandling appResponse >>= parseUpdates
 -- --     Logger.debug $ "Parsed as:" <> T.show updates
 -- --     if null updates
 -- --     then Logger.info "No new updates."
@@ -203,10 +208,10 @@ execute us = do
 -- --     when (s /= 0) $ Logger.info $ "Restart in " <> T.show s <> "s."
 -- --     wait s 
 -- --     Logger.info "Restarting." 
--- --     runBot @b
+-- --     runapp @b
 
 -- -- handler :: forall b a. MonadCatch a => [Handler a ()]
--- -- handler = [Handler handlerHTTP, Handler handlerBot, Handler handlerMessanger]
+-- -- handler = [Handler handlerHTTP, Handler handlerapp, Handler handlerMessanger]
 -- --   where
 
 -- --     handlerHTTP e = (>> restartIn @b 60) $ Logger.error $ case e of
@@ -217,7 +222,7 @@ execute us = do
 -- --             -> "HTTP exception accured with request:\n" <> T.pack req 
 -- --             <> "\ncontent:\n" <> T.pack content 
 
--- --     handlerBot = \case
+-- --     handlerapp = \case
 -- --         (err :: Front.Error) -> Logger.error (T.show err) >> restartIn @b @a 60
 
 -- --     handlerMessanger = errorHandler @b

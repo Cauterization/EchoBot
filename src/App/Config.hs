@@ -33,8 +33,8 @@ data Config (f :: FrontEnd) = Config
     , cHelpMessage    :: !Text
     , cRepeatMessage  :: !Text
     , cFrontEnd       :: FrontName f
-    , cToken          :: WebOnly   f (Token f)
-    , cPollingTime    :: WebOnly   f PollingTime
+    , cToken          :: WebOnly f (Token f)
+    , cPollingTime    :: WebOnly f PollingTime
     } deriving stock (Generic)
 
 deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) instance 

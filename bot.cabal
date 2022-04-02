@@ -29,9 +29,8 @@ library
       App.Config
       App.Env
       App.Main
-      Bot.Commands
+      Bot.Action
       Bot.Error
-      Bot.Recieve
       Bot.Types
       Console.FrontEnd
       Extended.HTTP
@@ -40,8 +39,8 @@ library
       FrontEnd.Web
       Logger.Handle
       Logger.IO
-      Vkontakte.Commands
       Vkontakte.FrontEnd
+      Vkontakte.Web
   other-modules:
       Paths_bot
   hs-source-dirs:
