@@ -43,7 +43,7 @@ import Data.Functor
 frontName :: forall f s. (Typeable f, IsString s) => s
 frontName = 
     let fullName = show (typeOf (Proxy @f))
-    in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy FrontEnd '" fullName
+    in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy * " fullName
 
 newtype Token f = Token {unToken :: Text}
     deriving (Show)
@@ -54,7 +54,7 @@ instance Typeable f => FromJSON (Token f) where
     -- WebOnly 'Console a = NotRequired
     -- WebOnly f        a = a
 
-data NotRequired = NotRequired deriving Show
+data NotRequired = NotRequired deriving (Show, Eq, Ord)
 
 instance FromJSON NotRequired where
   parseJSON _ = pure NotRequired
@@ -62,12 +62,12 @@ instance FromJSON NotRequired where
 newtype FrontName f = FrontName Text
     deriving (Generic, Show)
 
-instance (Typeable f, FromJSON f) => FromJSON (FrontName f) where
+instance (Typeable f) => FromJSON (FrontName f) where
     parseJSON = withText "FrontEnd" $ \t -> do
-        guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
-        FrontName <$> parseJSON (String t)
+        guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
+        pure $ FrontName t
 
-class IsFrontEnd f where 
+class Ord (User f) => IsFrontEnd f where 
 
     type family WebOnly f a :: Type
 
@@ -78,14 +78,14 @@ class IsFrontEnd f where
     newFrontData :: (Monad m, MonadThrow m, MonadIO m) 
          => WebOnly f (Token f) -> m (FrontData f)
 
-    -- type SendEcho      f :: Type
-    -- type SendHelp      f :: Type
-    -- type SendKeyboard  f :: Type
-    -- type HideKeyboard  f :: Type
-
     type Update f :: Type
 
     getActions :: (Monad m, HasWebEnv f m) => Update f -> m [Action f]
+
+class HasRepeats m f | m -> f where
+    getRepeats :: User f -> m (Maybe Repeat)
+    setRepeats :: User f -> m ()
+    defaultRepeats :: m Repeat
 
 data Action f =
     SendEcho (User f) URL
@@ -100,16 +100,13 @@ class FrontEndIO f (m :: Type -> Type) | m -> f where
 
     sendResponse :: Text -> m ()
 
-
 instance {-# OVERLAPPABLE #-}
-    ( IsFrontEnd f
-    , IsWebFrontEnd f
-    , Monad m
+    ( Monad m
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
     , MonadThrow m
-    , HasWebEnv f m
+    , IsWebFrontEnd f m
     , FromJSON (Response f)
     , FromJSON (BadResponse f)
     , Show (Response f)
@@ -117,19 +114,18 @@ instance {-# OVERLAPPABLE #-}
     => FrontEndIO f m where
 
     getUpdates = 
-        getUpdatesURL @f <$> getToken <*> getFrontData <*> getPollingTime 
+        getUpdatesURL @f @m <$> getToken @f @m <*> getFrontData <*> getPollingTime 
         >>= HTTP.tryRequest 
         >>= \x -> case eitherDecode @(Response f) x of
             Left _ -> parse @(BadResponse f) x >>= fmap (fmap (const [])) handleBadResponse
             Right r -> do
                 Logger.debug $ "Recieved response:" Logger..< r
-                setFrontData $ extractFrontData @f r 
-                pure $ extractUpdates @f r
+                setFrontData $ extractFrontData @f @m r 
+                pure $ extractUpdates @f @m r
 
     sendResponse = HTTP.tryRequest >=> checkCallback @f
 
-class ( IsWebFrontEnd f 
-      ) => HasWebEnv f m | m -> f where
+class HasWebEnv f m | m -> f where
     getFrontData   :: m (FrontData f)
     setFrontData   :: FrontData f -> m ()
     getToken       :: m (Token f)
@@ -139,7 +135,8 @@ class ( WebOnly f URL ~ URL
       , WebOnly f (Token f) ~ Token f
       , WebOnly f (FrontData f) ~ FrontData f
       , WebOnly f PollingTime ~ PollingTime
-      ) => IsWebFrontEnd f where
+      , HasWebEnv f m
+      ) => IsWebFrontEnd f m | m -> f where
 
     type Response f :: Type
 
@@ -151,17 +148,7 @@ class ( WebOnly f URL ~ URL
 
     type BadResponse f :: Type
 
-    handleBadResponse :: (Logger.HasLogger m, HTTP.MonadHttp m, MonadThrow m, HasWebEnv f m) => BadResponse f -> m ()
-
-    -- type SendKeyboard  f :: Type
-    -- type HideKeyboard  f :: Type
+    handleBadResponse :: BadResponse f -> m ()
 
     checkCallback :: BL.ByteString -> m ()
 
--- withConnectionData 
-
--- class Action f where
---     type SendHelp f :: WebOnly f ()
---     sendKeyboard  :: WebOnly f (SendKeyboard f) -> Action f
---     spdateRepeats :: WebOnly f (UpdateRepeats f) -> Action f
---     hideKeyboard  :: WebOnly f (HideKeyboard f -> Action f)

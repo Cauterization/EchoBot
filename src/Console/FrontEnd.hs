@@ -10,7 +10,7 @@ import Control.Monad.IO.Class
 import Data.Aeson
 import GHC.Generics
 
-data Console = Console deriving (Generic, FromJSON)
+data Console = Console deriving (Generic, FromJSON, Show)
 
 instance IsFrontEnd Console where
 

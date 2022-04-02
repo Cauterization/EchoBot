@@ -19,13 +19,13 @@ data Env f = Env
     , envDefaultRepeats :: !Repeat    
     , envHelpMessage    :: !Text
     , envRepeatMessage  :: !Text
-    , envReps           :: IORef (M.Map (User f) Repeat)
+    , envRepeats        :: IORef (M.Map (User f) Repeat)
     , envToken          :: WebOnly f (Token f)
     , envFrontData      :: IORef (FrontData f)
     , envPollingTime    :: WebOnly f PollingTime
     }
 
-newEnv :: forall f. IsFrontEnd f
+newEnv :: forall f m. IsFrontEnd f
     => Config f -> IO (Env f)
 newEnv Config{..} = do
     envReps <- newIORef M.empty  

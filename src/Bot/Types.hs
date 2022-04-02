@@ -24,6 +24,9 @@ newtype ID e = ID { idVal :: Int }
 
 newtype Repeat = Repeat Int deriving (Generic, Show)
 
+-- newtype FrontEnd f = FrontEnd f 
+--     deriving newtype (FromJSON)
+
 instance FromJSON Repeat where
     parseJSON r = do
         x <- parseJSON @Int r

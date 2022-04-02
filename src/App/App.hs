@@ -26,6 +26,8 @@ import Vkontakte.Web qualified as VK
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
 import  Logger.Handle qualified as Logger
+import qualified Data.Map as M
+import Data.Functor
 
 newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
     deriving newtype ( Functor
@@ -36,12 +38,16 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
                      , MonadThrow
                      )
 
-instance ( IsWebFrontEnd f
+instance Ord (User f) => HasRepeats (App f) f where
+    getRepeats u = asks (envRepeats @f) >>= (liftIO . readIORef) <&> M.lookup u
+
+
+instance ( IsWebFrontEnd f (App f)
          ) => HasWebEnv f (App f) where
-    getToken = asks envToken
-    getFrontData = asks envFrontData >>= liftIO . readIORef
-    setFrontData fd = asks envFrontData >>= liftIO . flip writeIORef fd
-    getPollingTime = asks envPollingTime
+    getToken = asks $ envToken @f
+    getFrontData = asks (envFrontData @f) >>= liftIO . readIORef
+    setFrontData fd = asks (envFrontData @f) >>= liftIO . flip writeIORef fd
+    getPollingTime = asks (envPollingTime @f)
 
 instance Logger.HasLogger (App f) where
     mkLog v t = do
@@ -52,12 +58,12 @@ chooseFront :: FilePath -> IO ()
 chooseFront fp = foldl1 handler 
     [ getConfig @VK.Vkontakte fp >>= newEnv >>= runReaderT (unApp app)
     -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp app)
-    , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp app)
+    -- , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp app)
     ]
   where
     handler cur next = catch cur $ \e -> 
         if ioe_description e == confErr <> "\"Error in $.FrontEnd: empty\""
-        then cur else next
+        then next else cur
 
 app :: forall f. (IsFrontEnd f, FrontEndIO f (App f)) => App f ()
 app = do

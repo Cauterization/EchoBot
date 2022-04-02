@@ -26,7 +26,12 @@ import Control.Monad.IO.Class (MonadIO)
 import GHC.Generics
 import Data.Aeson
 
-data Vkontakte = Vkontakte deriving (Generic, FromJSON)
+data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
+
+{-
+>>> eitherDecode @(Front.FrontName Vkontakte) "Vkontakte"
+Left "Error in $: Failed reading: not a valid json value at 'Vkontakte'"
+-}
 
 instance IsFrontEnd Vkontakte where 
 
@@ -48,7 +53,12 @@ instance IsFrontEnd Vkontakte where
     -- getActions :: GoodResponse -> [Action 'Vkontakte]
     getActions = getActions
 
-instance IsWebFrontEnd Vkontakte where
+instance ( Monad m
+         , MonadThrow m
+         , HTTP.MonadHttp m
+         , Logger.HasLogger m
+         , Front.HasWebEnv Vkontakte m
+         ) => IsWebFrontEnd Vkontakte m where
 
     getUpdatesURL = getUpdatesURL
 
