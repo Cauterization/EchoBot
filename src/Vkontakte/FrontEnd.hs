@@ -24,6 +24,7 @@ import Deriving.Aeson
       StripPrefix
       )
 import qualified Logger.Handle as Logger
+import Data.Function (on)
 
 data User
 type Key       = T.Text
@@ -38,6 +39,16 @@ data FrontData = FrontData
     , server :: !Server
     , ts     :: !Ts
     } deriving (Show, Generic, Eq, ToJSON)
+
+instance Semigroup FrontData where
+    a <> b = FrontData k s t
+      where
+        k = key $ if T.null (key a) then b else a
+        s = server $ if T.null (server a) then b else a
+        t = (max `on` ts) a b
+
+instance Monoid FrontData where
+    mempty = fromTs 0
 
 fromTs :: Ts -> FrontData 
 fromTs = FrontData "" ""

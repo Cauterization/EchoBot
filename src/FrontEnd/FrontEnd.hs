@@ -134,7 +134,7 @@ instance {-# OVERLAPPABLE #-}
             Left err -> parseCatch @(BadResponse f) err x >>= fmap (fmap (const [])) (handleBadResponse @f)
             Right r -> do
                 Logger.debug $ "Recieved response:" Logger..< r
-                setFrontData $ extractFrontData @f @m r 
+                updateFrontData $ extractFrontData @f @m r 
                 pure $ extractUpdates @f @m r
 
     sendResponse = HTTP.tryRequest >=> checkCallback 
@@ -143,6 +143,7 @@ instance {-# OVERLAPPABLE #-}
 class ( WebOnly f URL ~ URL
       , WebOnly f (Token f) ~ Token f
       , WebOnly f (FrontData f) ~ FrontData f
+      , Semigroup (FrontData f)
       , WebOnly f PollingTime ~ PollingTime
       , HasEnv f m
       ) => IsWebFrontEnd f m where
