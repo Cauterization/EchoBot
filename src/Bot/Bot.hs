@@ -13,13 +13,12 @@ import GHC.IO.Exception
 import App.Config
 import App.Env
 
-import Bot.Action
+import Bot.IO
 import Bot.Types
 
 import Console.FrontEnd
 
-import FrontEnd.FrontEnd
-import FrontEnd.Web
+import Bot.FrontEnd
 
 import Vkontakte.Web qualified as VK
 import Vkontakte.Web qualified as VK
@@ -47,8 +46,9 @@ bot = forever $ do
     Logger.info $ "Recieved " .< length updates <> " new updates."
     actions <- concat <$> mapM getActions updates
     forM_ actions $ \case
-        SendEcho user se -> replicate . unRepeat <$> getRepeatsFor user <*> pure se
-        -- SendHelp sh -> 
-        -- UpdateRepeats u r -> 
-        -- SendKeyboard sk -> 
-        -- HideKeyboard hk -> 
+        SendEcho user se -> getRepeatsFor user >>= flip replicateM_ (sendResponse @f se)
+            -- replicateM_ . unRepeat <$> getRepeatsFor user $ putStrLn "asd" -- pure se
+        -- SendHelp sh -> undefined
+        UpdateRepeats u r -> setRepeats u r 
+        SendKeyboard sk -> sendWebResponse @f sk
+        HideKeyboard hk -> sendWebResponse @f hk

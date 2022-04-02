@@ -3,9 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module FrontEnd.FrontEnd where
-    
-import Control.Arrow
+module Bot.FrontEnd where
 
 import Control.Monad (guard, (>=>), liftM2, join)
 import Control.Monad.Catch
@@ -91,8 +89,8 @@ class HasEnv f m | m -> f where
     getToken       :: m (WebOnly f (Token f))
     getPollingTime :: m (WebOnly f PollingTime)
 
-getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Repeat
-getRepeatsFor u = getRepeats u >>= maybe defaultRepeats pure
+getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Int
+getRepeatsFor u = getRepeats u >>= fmap unRepeat . maybe defaultRepeats pure
 
 -- | Wee need it because of vkontakte partial frontEnd data update 
 updateFrontData :: forall f m. (HasEnv f m, Monad m, Semigroup (FrontData f)) => 
@@ -105,46 +103,14 @@ data Action f
     = SendEcho  (User f) URL 
     -- | SendHelp (SendHelp f)
     | UpdateRepeats (User f) Repeat
-    -- | SendKeyboard (WebOnly f (SendKeyboard f))
-    | HideKeyboard (HideKeyboard f)
+    | SendKeyboard (WebOnly f URL)
+    | HideKeyboard (WebOnly f URL)
 
-class FrontEndIO f (m :: Type -> Type) where
-
-    getUpdates :: m [Update f]
-
-    sendResponse :: Text -> m ()
-
-instance {-# OVERLAPPABLE #-}
-    ( Monad m
-    , MonadThrow m
-    , HTTP.MonadHttp m
-    , Logger.HasLogger m
-    , MonadCatch m
-    , IsWebFrontEnd f m
-    , FromJSON (Response f)
-    , FromJSON (BadResponse f)
-    , Show (Response f)
-    ) 
-    => FrontEndIO f m where
-
-    getUpdates = 
-        getUpdatesURL @f @m <$> getToken <*> getFrontData <*> getPollingTime 
-        >>= HTTP.tryRequest 
-        >>= \x -> case eitherDecode @(Response f) x of
-            Left err -> parseCatch @(BadResponse f) err x >>= fmap (fmap (const [])) (handleBadResponse @f)
-            Right r -> do
-                Logger.debug $ "Recieved response:" Logger..< r
-                updateFrontData $ extractFrontData @f @m r 
-                pure $ extractUpdates @f @m r
-
-    sendResponse = HTTP.tryRequest >=> checkCallback 
-
-
-class ( WebOnly f URL ~ URL
-      , WebOnly f (Token f) ~ Token f
+class ( WebOnly f (Token f) ~ Token f
       , WebOnly f (FrontData f) ~ FrontData f
       , Semigroup (FrontData f)
       , WebOnly f PollingTime ~ PollingTime
+      , WebOnly f Text ~ Text
       , HasEnv f m
       ) => IsWebFrontEnd f m where
 
@@ -161,6 +127,4 @@ class ( WebOnly f URL ~ URL
     handleBadResponse :: BadResponse f -> m ()
 
     checkCallback :: BL.ByteString -> m ()
-
-    type HideKeyboard f :: Type
 

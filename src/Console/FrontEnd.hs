@@ -5,10 +5,12 @@ import Data.Text qualified as T
 import Extended.Text (Text)
 import Extended.Text qualified as T
 
-import FrontEnd.FrontEnd
+import Bot.FrontEnd
 import Control.Monad.IO.Class
 import Data.Aeson
 import GHC.Generics
+
+import Bot.IO
 
 data Console = Console deriving (Generic, FromJSON, Show)
 
@@ -31,9 +33,11 @@ instance IsFrontEnd Console where
 
 instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     
-    getUpdates = fmap pure $ liftIO $ T.getLine
+    getUpdates = pure <$> liftIO T.getLine
 
     sendResponse = liftIO . T.putStrLn
+
+    sendWebResponse _ = pure ()
 
 getAction :: Update Console -> Action Console
 getAction = \case

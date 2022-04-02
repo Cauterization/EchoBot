@@ -29,16 +29,14 @@ library
       App.Config
       App.Env
       App.Main
-      Bot.Action
       Bot.Bot
       Bot.Error
+      Bot.FrontEnd
+      Bot.IO
       Bot.Types
       Console.FrontEnd
-      Extended.Arrow
       Extended.HTTP
       Extended.Text
-      FrontEnd.FrontEnd
-      FrontEnd.Web
       Logger.Handle
       Logger.IO
       Vkontakte.FrontEnd

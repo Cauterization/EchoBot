@@ -16,8 +16,8 @@ import Extended.HTTP qualified as HTTP
 
 import qualified Logger.Handle as Logger
 
-import FrontEnd.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
-import FrontEnd.FrontEnd qualified as Front
+import Bot.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
+import Bot.FrontEnd qualified as Front
 
 import Vkontakte.FrontEnd 
 
@@ -25,6 +25,8 @@ import Bot.Error
 import GHC.Generics
 import Data.Aeson
 import Logger.Handle ((.<))
+import qualified Data.ByteString.Lazy as BSL
+import Control.Monad ((>=>))
 
 data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
 
@@ -66,7 +68,9 @@ instance ( Monad m
 
     extractFrontData = fromTs . T.read . goodTs
 
-    type HideKeyboard Vkontakte = ID User
+    -- type SendKeyboard Vkontakte = ID User
+
+    -- type HideKeyboard Vkontakte = ID User
 
     extractUpdates = updates
 
@@ -115,7 +119,10 @@ handleBadResponse BadResponse{..} = case failed of
         >> Front.getToken >>= newFrontData >>= Front.setFrontData
     _ -> Logger.error "Unknown error code. IDK what to do with this."
 
-checkCallback = undefined
+checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
+checkCallback = parse >=> \case
+    GoodCallback _ -> pure ()
+    BadCallback    -> throwM $ BadCallbackError ""
 
 getActions :: (Monad m, Front.HasEnv Vkontakte m, Logger.HasLogger m) 
     => Update -> m [Action Vkontakte]
@@ -125,26 +132,53 @@ getActions = \case
         -- UpdateRepeats uID rep ->
         --         pure $ Bot.UpdateRepeats (VKUser uID) rep $ HideKeyboard uID
         Update Message{..} 
-            -> pure . Front.SendEcho from_id <$> messageToEcho Message{..}
+            -> pure . Front.SendEcho from_id <$> mkEchoRequest Message{..}
         UpdateRepeats userID rep 
-            -> pure [Front.UpdateRepeats userID rep, Front.HideKeyboard userID]
+            -> sequence [ pure $ Front.UpdateRepeats userID rep
+                        , Front.HideKeyboard <$> mkHideKeyboardRequest userID
+                        ]
         Trash t 
-            -> [] <$ Logger.debug ("That update doesn't look like something meaningful" <> t)
+            -> [] <$ Logger.debug ("That update doesn't look like something meaningful " <> t)
 
 
-messageToEcho :: forall m. (Monad m, Front.HasEnv Vkontakte m) =>  Message -> m URL
-messageToEcho Message{..} = do
-    token <- ("&access_token=" <>) . unToken <$> Front.getToken 
-    pure $ body <> user <> message <> token <> version <> attachment
+mkEchoRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) =>  Message -> m URL
+mkEchoRequest Message{..} = do
+    token <- prepareToken
+    pure $ mconcat [ body
+                   , prepareUser from_id
+                   , if T.null text then "" else prepareMessage text
+                   , token
+                   , version
+                   , attachment
+                   ]
   where
-    user = "?user_id=" <> T.show from_id
-    message = if T.null text then "" else "&message=" <> text
     attachment = case attachments of
             [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
             as ->  "&attachment=" <> attachmentsToReq as
     attachmentsToReq = T.intercalate "," . map attachmentToReq
     attachmentToReq Attachment{..} = mconcat
         [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
+
+mkHideKeyboardRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) => ID User -> m URL
+mkHideKeyboardRequest userID = do
+    token <- prepareToken
+    pure $ mconcat [ body
+                   , prepareUser userID
+                   , prepareMessage "repeats_updated"
+                   , token
+                   , version
+                   , "&keyboard="
+                   , HTTP.percentEncode ("{\"buttons\":[],\"inline\":false}" :: Text)
+                   ]
+
+prepareMessage :: Text -> Text
+prepareMessage = ("&message=" <>)
+
+prepareUser :: ID User -> Text
+prepareUser userID = "?user_id=" <> T.show userID
+
+prepareToken :: (Front.HasEnv Vkontakte m, Functor m) => m Text
+prepareToken = ("&access_token=" <>) . unToken <$> Front.getToken 
 
 body :: Text
 body = "https://api.vk.com/method/messages.send"

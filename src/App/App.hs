@@ -13,14 +13,11 @@ import GHC.IO.Exception
 import App.Config
 import App.Env
 
-import Bot.Action
 import Bot.Bot
+import Bot.FrontEnd
 import Bot.Types
 
 import Console.FrontEnd
-
-import FrontEnd.FrontEnd
-import FrontEnd.Web
 
 import Vkontakte.Web qualified as VK
 

@@ -21,11 +21,11 @@ import GHC.Generics (Generic)
 
 import Logger.Handle qualified as Logger
 
+import Bot.FrontEnd 
 import Bot.Types 
 
 import Console.FrontEnd
 
-import FrontEnd.FrontEnd 
 
 import qualified Extended.Text as T
 

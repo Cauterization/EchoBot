@@ -13,7 +13,7 @@ import Extended.Text (readEither)
 
 data BotError
     = ParsingError Text
-    | Restart
+    | BadCallbackError Text
     deriving (Show, Exception)
 
 parse :: (FromJSON x, MonadThrow m) => BSL.ByteString -> m x

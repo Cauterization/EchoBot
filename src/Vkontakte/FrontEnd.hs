@@ -90,7 +90,6 @@ instance FromJSON Update where
                 pure $ UpdateRepeats userID payload
             _  -> pure $ Trash t
 
-
 data Message = Message
     { from_id      :: !(ID User)
     , text         :: !Text
@@ -127,10 +126,15 @@ pattern RepeatUpdate uID
 pattern HelpUpdate uID 
     <- Update Message{from_id = uID, text = "/help"}
 
+data Callback 
+    = GoodCallback Int
+    | BadCallback 
+    deriving (Eq, Show, Generic)
 
-
-
-
+instance FromJSON Callback where
+    parseJSON = withObject "Callback" $ \v -> do
+        GoodCallback <$> v .: "response"
+        <|> pure BadCallback
 
 -- data Command = SendEchoCommand      Message
 --              | SendHelpCommand      (ID User)

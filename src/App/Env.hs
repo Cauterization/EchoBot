@@ -8,8 +8,7 @@ import Data.Text (Text)
 import App.Config
 import Bot.Types
 
-import FrontEnd.FrontEnd
-import FrontEnd.Web
+import Bot.FrontEnd
 
 import Logger.Handle qualified as Logger
 import Logger.IO qualified as Logger
