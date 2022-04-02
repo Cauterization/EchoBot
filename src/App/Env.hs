@@ -14,7 +14,7 @@ import FrontEnd.Web
 import Logger.Handle qualified as Logger
 import Logger.IO qualified as Logger
 
-data Env (f :: FrontEnd) = Env
+data Env f = Env
     { envLogger         :: Logger.Logger IO
     , envDefaultRepeats :: !Repeat    
     , envHelpMessage    :: !Text

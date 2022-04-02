@@ -5,6 +5,7 @@ import Control.Monad.Catch
 
 import Data.Functor ( (<&>) )
 -- import Extended.Text (Text)
+import Extended.Text (Text)
 import Extended.Text qualified as T
 
 -- import Bot.Error
@@ -15,21 +16,27 @@ import Extended.HTTP qualified as HTTP
 
 import qualified Logger.Handle as Logger
 
-import FrontEnd.FrontEnd (IsFrontEnd, IsWebFrontEnd, FrontEnd(..), Token(..), Action)
+import FrontEnd.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
 import FrontEnd.FrontEnd qualified as Front
 
 import Vkontakte.FrontEnd 
 
 import Bot.Error
 import Control.Monad.IO.Class (MonadIO)
+import GHC.Generics
+import Data.Aeson
 
-instance IsFrontEnd 'Vkontakte where 
+data Vkontakte = Vkontakte deriving (Generic, FromJSON)
 
-    type User      'Vkontakte = ID User
+instance IsFrontEnd Vkontakte where 
 
-    type Update    'Vkontakte = Update
+    type WebOnly Vkontakte a = a
 
-    type FrontData 'Vkontakte = FrontData
+    type User      Vkontakte = ID User
+
+    type Update    Vkontakte = Update
+
+    type FrontData Vkontakte = FrontData
 
     newFrontData = newFrontData
 
@@ -39,19 +46,19 @@ instance IsFrontEnd 'Vkontakte where
     -- type HideKeyboard  f :: Type
 
     -- getActions :: GoodResponse -> [Action 'Vkontakte]
-    getActions = undefined
+    getActions = getActions
 
-instance IsWebFrontEnd 'Vkontakte where
+instance IsWebFrontEnd Vkontakte where
 
     getUpdatesURL = getUpdatesURL
 
-    type Response 'Vkontakte = GoodResponse 
+    type Response Vkontakte = GoodResponse 
 
     extractFrontData = fromTs . T.read . goodTs
 
     extractUpdates = updates
 
-    type BadResponse 'Vkontakte = BadResponse
+    type BadResponse Vkontakte = BadResponse
 
     handleBadResponse = handleBadResponse
 
@@ -68,7 +75,7 @@ newFrontData (Token t) = do
            <> "&v=5.81"
     HTTP.tryRequest req >>= parse @FrontData
 
-getUpdatesURL :: Token (f :: FrontEnd) -> FrontData -> PollingTime -> URL
+getUpdatesURL :: Token Vkontakte -> FrontData -> PollingTime -> URL
 getUpdatesURL _ FrontData{..} polling = mconcat 
     [ server 
     , "?act=a_check&key=", key
@@ -81,7 +88,7 @@ handleBadResponse ::
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
-    , Front.HasWebEnv 'Vkontakte m
+    , Front.HasWebEnv Vkontakte m
     ) 
     => BadResponse -> m ()
 handleBadResponse BadResponse{..} = case failed of
@@ -93,7 +100,37 @@ handleBadResponse BadResponse{..} = case failed of
     2 -> Logger.warning "Key is out of date. Getting new key..."
         >> Front.getToken >>= newFrontData >>= Front.setFrontData
     3 -> Logger.warning "FrontEnd data is lost, requesting new one..."
-        >> Front.getToken >>= newFrontData >>= Front.setFrontData @'Vkontakte
+        >> Front.getToken >>= newFrontData >>= Front.setFrontData @Vkontakte
     _ -> Logger.error "Unknown error code. IDK what to do with this."
 
 checkCallback = undefined
+
+getActions :: (Monad m, Front.HasWebEnv Vkontakte m) => Update -> m [Action Vkontakte]
+getActions = \case
+        -- HelpUpdate    uID     -> pure $ Bot.Update $ SendHelp uID
+        -- RepeatUpdate  uID     -> pure $ Bot.Update $ SendKeyboard uID
+        -- UpdateRepeats uID rep ->
+        --         pure $ Bot.UpdateRepeats (VKUser uID) rep $ HideKeyboard uID
+        Update Message{..} -> pure . Front.SendEcho from_id <$> messageToEcho Message{..}
+        Trash t            -> pure []
+        _ -> undefined
+
+messageToEcho :: (Monad m, Front.HasWebEnv Vkontakte m) => Message -> m URL
+messageToEcho Message{..} = do
+    token <- ("&access_token=" <>) . unToken <$> Front.getToken
+    pure $ body <> user <> message <> token <> version <> attachment
+  where
+    user = "?user_id=" <> T.show from_id
+    message = if T.null text then "" else "&message=" <> text
+    attachment = case attachments of
+            [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
+            as ->  "&attachment=" <> attachmentsToReq as
+    attachmentsToReq = T.intercalate "," . map attachmentToReq
+    attachmentToReq Attachment{..} = mconcat
+        [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
+
+body :: Text
+body = "https://api.vk.com/method/messages.send"
+
+version :: Text
+version = "&v=5.81"

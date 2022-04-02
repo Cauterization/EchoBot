@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs  #-}
 {-# LANGUAGE TypeFamilyDependencies   #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module FrontEnd.FrontEnd where
     
@@ -33,41 +34,42 @@ import qualified Data.ByteString.Lazy as BL
 import Control.Applicative
 import Data.Functor
 
-data FrontEnd 
-    = Vkontakte 
-    -- | Telegram
-    | Console 
-    deriving (Show, Generic, FromJSON)
+-- data FrontEnd 
+--     = Vkontakte 
+--     -- | Telegram
+--     | Console 
+--     deriving (Show, Generic, FromJSON)
 
-frontName :: forall (f :: FrontEnd) s. (Typeable f, IsString s) => s
+frontName :: forall f s. (Typeable f, IsString s) => s
 frontName = 
     let fullName = show (typeOf (Proxy @f))
     in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy FrontEnd '" fullName
 
-newtype Token (f :: FrontEnd) = Token Text 
+newtype Token f = Token {unToken :: Text}
     deriving (Show)
 
 instance Typeable f => FromJSON (Token f) where
     parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
 
-type family WebOnly (f :: FrontEnd) a where
-    WebOnly 'Console a = NotRequired
-    WebOnly f        a = a
+    -- WebOnly 'Console a = NotRequired
+    -- WebOnly f        a = a
 
 data NotRequired = NotRequired deriving Show
 
 instance FromJSON NotRequired where
   parseJSON _ = pure NotRequired
 
-newtype FrontName (f :: FrontEnd) = FrontName FrontEnd
+newtype FrontName f = FrontName Text
     deriving (Generic, Show)
 
-instance Typeable f => FromJSON (FrontName f) where
+instance (Typeable f, FromJSON f) => FromJSON (FrontName f) where
     parseJSON = withText "FrontEnd" $ \t -> do
         guard $ "Proxy FrontEnd '" <> t == T.show (typeOf (Proxy @f))
         FrontName <$> parseJSON (String t)
 
-class IsFrontEnd (f :: FrontEnd) where 
+class IsFrontEnd f where 
+
+    type family WebOnly f a :: Type
 
     type User f :: Type
 
@@ -83,16 +85,16 @@ class IsFrontEnd (f :: FrontEnd) where
 
     type Update f :: Type
 
-    getActions :: Update f -> [Action f]
+    getActions :: (Monad m, HasWebEnv f m) => Update f -> m [Action f]
 
-data Action (f :: FrontEnd) =
+data Action f =
     SendEcho (User f) URL
     -- | SendHelp (SendHelp f)
     -- | UpdateRepeats (User f) Repeat
     -- | SendKeyboard (WebOnly f (SendKeyboard f))
     -- | HideKeyboard (HideKeyboard f)
 
-class FrontEndIO (f :: FrontEnd) (m :: Type -> Type) | m -> f where
+class FrontEndIO f (m :: Type -> Type) | m -> f where
 
     getUpdates :: m [Update f]
 
@@ -112,7 +114,7 @@ instance {-# OVERLAPPABLE #-}
     , FromJSON (BadResponse f)
     , Show (Response f)
     ) 
-    => FrontEndIO (f :: FrontEnd) m where
+    => FrontEndIO f m where
 
     getUpdates = 
         getUpdatesURL @f <$> getToken <*> getFrontData <*> getPollingTime 
@@ -127,7 +129,7 @@ instance {-# OVERLAPPABLE #-}
     sendResponse = HTTP.tryRequest >=> checkCallback @f
 
 class ( IsWebFrontEnd f 
-      ) => HasWebEnv (f :: FrontEnd) m | m -> f where
+      ) => HasWebEnv f m | m -> f where
     getFrontData   :: m (FrontData f)
     setFrontData   :: FrontData f -> m ()
     getToken       :: m (Token f)
@@ -137,7 +139,7 @@ class ( WebOnly f URL ~ URL
       , WebOnly f (Token f) ~ Token f
       , WebOnly f (FrontData f) ~ FrontData f
       , WebOnly f PollingTime ~ PollingTime
-      ) => IsWebFrontEnd (f :: FrontEnd) where
+      ) => IsWebFrontEnd f where
 
     type Response f :: Type
 
@@ -158,7 +160,7 @@ class ( WebOnly f URL ~ URL
 
 -- withConnectionData 
 
--- class Action (f :: FrontEnd) where
+-- class Action f where
 --     type SendHelp f :: WebOnly f ()
 --     sendKeyboard  :: WebOnly f (SendKeyboard f) -> Action f
 --     spdateRepeats :: WebOnly f (UpdateRepeats f) -> Action f

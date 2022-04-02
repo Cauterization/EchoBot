@@ -7,34 +7,35 @@ import Extended.Text qualified as T
 
 import FrontEnd.FrontEnd
 import Control.Monad.IO.Class
+import Data.Aeson
+import GHC.Generics
 
-newtype ConsoleText = ConsoleText {unCT :: Text}
+data Console = Console deriving (Generic, FromJSON)
 
-getLine :: IO ConsoleText
-getLine = ConsoleText <$> T.getLine
+instance IsFrontEnd Console where
 
-instance IsFrontEnd 'Console where
+    type WebOnly   Console _ = NotRequired
 
-    type User      'Console = NotRequired
+    type User      Console = NotRequired
 
-    type Update    'Console = Text
+    type Update    Console = Text
 
-    type FrontData 'Console = NotRequired
+    type FrontData Console = NotRequired
 
     newFrontData _ = pure NotRequired
 
     -- type SendEcho  'Console  = NotRequired
     -- type SendHelp  'Console  = NotRequired
 
-    getActions = pure . getAction
+    getActions = pure . pure . getAction
 
-instance MonadIO m => FrontEndIO 'Console m where
+instance MonadIO m => FrontEndIO Console m where
     
     getUpdates = fmap pure $ liftIO $ T.getLine
 
     sendResponse = liftIO . T.putStrLn
 
-getAction :: Text -> Action 'Console
+getAction :: Text -> Action Console
 getAction = \case
     -- "/help" -> 
     -- "/repeat" -> undefined

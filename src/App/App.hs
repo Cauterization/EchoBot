@@ -27,7 +27,7 @@ import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
 import  Logger.Handle qualified as Logger
 
-newtype App (f :: FrontEnd) a = App {unApp :: (ReaderT (Env f) IO) a}
+newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
     deriving newtype ( Functor
                      , Applicative
                      , Monad
@@ -50,9 +50,9 @@ instance Logger.HasLogger (App f) where
 
 chooseFront :: FilePath -> IO ()
 chooseFront fp = foldl1 handler 
-    [ getConfig @'Vkontakte fp >>= newEnv >>= runReaderT (unApp app)
+    [ getConfig @VK.Vkontakte fp >>= newEnv >>= runReaderT (unApp app)
     -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp app)
-    , getConfig @'Console   fp >>= newEnv >>= runReaderT (unApp app)
+    , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp app)
     ]
   where
     handler cur next = catch cur $ \e -> 

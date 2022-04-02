@@ -23,11 +23,13 @@ import Logger.Handle qualified as Logger
 
 import Bot.Types 
 
+import Console.FrontEnd
+
 import FrontEnd.FrontEnd 
 
 import qualified Extended.Text as T
 
-data Config (f :: FrontEnd) = Config
+data Config f = Config
     { cLogger         :: Logger.Config
     , cDefaultRepeats :: Repeat
     , cHelpMessage    :: !Text
@@ -40,12 +42,14 @@ data Config (f :: FrontEnd) = Config
 deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) instance 
     (  Typeable f
     ,  FromJSON (WebOnly f (Token f))
-    ,  FromJSON (WebOnly f Int)) 
+    ,  FromJSON (WebOnly f Int) 
+    ,  FromJSON f
+    )
     => FromJSON (Config  f)
 
 -- deriving instance Show (Config 'Vkontakte)
 -- deriving instance Show (Config 'Telegram)
-deriving instance Show (Config 'Console)
+deriving instance Show (Config Console)
 
 confErr :: String
 confErr = "Parsing config error: "
