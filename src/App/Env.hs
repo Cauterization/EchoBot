@@ -28,8 +28,8 @@ data Env f = Env
 newEnv :: forall f m. IsFrontEnd f
     => Config f -> IO (Env f)
 newEnv Config{..} = do
-    envReps <- newIORef M.empty  
-    envFrontData <- newFrontData @f @IO cToken >>= newIORef 
+    envRepeats <- newIORef M.empty  
+    envFrontData <- newFrontData @f cToken >>= newIORef 
     let envLogger         = Logger.fromConfig cLogger
         envDefaultRepeats = cDefaultRepeats
         envHelpMessage    = cHelpMessage

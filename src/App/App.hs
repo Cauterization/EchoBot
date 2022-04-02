@@ -37,18 +37,20 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
                      , MonadReader (Env f)
                      , MonadIO
                      , MonadThrow
+                     , MonadCatch
                      )
 
-instance Ord (User f) => HasRepeats (App f) f where
-    getRepeats u = asks (envRepeats @f) >>= (liftIO . readIORef) <&> M.lookup u
-
-
-instance ( IsWebFrontEnd f (App f)
-         ) => HasWebEnv f (App f) where
-    getToken = asks $ envToken @f
-    getFrontData = asks (envFrontData @f) >>= liftIO . readIORef
-    setFrontData fd = asks (envFrontData @f) >>= liftIO . flip writeIORef fd
-    getPollingTime = asks (envPollingTime @f)
+instance ( Ord (User f)
+         ) => HasEnv f (App f) where
+    getRepeats user = asks envRepeats>>= (liftIO . readIORef) <&> M.lookup user
+    setRepeats user rep = do
+        ref <- asks envRepeats
+        liftIO $ readIORef ref >>=  writeIORef ref . M.insert user rep
+    defaultRepeats = asks envDefaultRepeats
+    getToken = asks envToken 
+    getFrontData = asks envFrontData >>= liftIO . readIORef
+    setFrontData fd = asks envFrontData >>= liftIO . flip writeIORef fd
+    getPollingTime = asks envPollingTime
 
 instance Logger.HasLogger (App f) where
     mkLog v t = do
@@ -59,7 +61,7 @@ chooseFront :: FilePath -> IO ()
 chooseFront fp = foldl1 handler 
     [ getConfig @VK.Vkontakte fp >>= newEnv >>= runReaderT (unApp bot)
     -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp app)
-    -- , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp app)
+    , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp bot)
     ]
   where
     handler cur next = catch cur $ \e -> 

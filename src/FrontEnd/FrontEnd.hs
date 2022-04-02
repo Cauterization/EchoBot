@@ -7,7 +7,7 @@ module FrontEnd.FrontEnd where
     
 import Control.Arrow
 
-import Control.Monad (guard, (>=>), liftM2)
+import Control.Monad (guard, (>=>), liftM2, join)
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 
@@ -80,12 +80,19 @@ class Ord (User f) => IsFrontEnd f where
 
     type Update f :: Type
 
-    getActions :: (Monad m, HasWebEnv f m) => Update f -> m [Action f]
+    getActions :: (Monad m, HasEnv f m) => Update f -> m [Action f]
 
-class HasRepeats m f | m -> f where
-    getRepeats :: User f -> m (Maybe Repeat)
-    setRepeats :: User f -> m ()
+class HasEnv f m | m -> f where
+    getRepeats     :: User f -> m (Maybe Repeat)
+    setRepeats     :: User f -> Repeat -> m ()
     defaultRepeats :: m Repeat
+    getFrontData   :: m (FrontData f)
+    setFrontData   :: FrontData f -> m ()
+    getToken       :: m (WebOnly f (Token f))
+    getPollingTime :: m (WebOnly f PollingTime)
+
+getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Repeat
+getRepeatsFor u = getRepeats u >>= maybe defaultRepeats pure
 
 data Action f =
     SendEcho (User f) URL
@@ -94,7 +101,7 @@ data Action f =
     -- | SendKeyboard (WebOnly f (SendKeyboard f))
     -- | HideKeyboard (HideKeyboard f)
 
-class FrontEndIO f (m :: Type -> Type) | m -> f where
+class FrontEndIO f (m :: Type -> Type) where
 
     getUpdates :: m [Update f]
 
@@ -105,7 +112,7 @@ instance {-# OVERLAPPABLE #-}
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
-    , MonadThrow m
+    , MonadCatch m
     , IsWebFrontEnd f m
     , FromJSON (Response f)
     , FromJSON (BadResponse f)
@@ -114,29 +121,24 @@ instance {-# OVERLAPPABLE #-}
     => FrontEndIO f m where
 
     getUpdates = 
-        getUpdatesURL @f @m <$> getToken @f @m <*> getFrontData <*> getPollingTime 
+        getUpdatesURL @f @m <$> getToken <*> getFrontData <*> getPollingTime 
         >>= HTTP.tryRequest 
         >>= \x -> case eitherDecode @(Response f) x of
-            Left _ -> parse @(BadResponse f) x >>= fmap (fmap (const [])) handleBadResponse
+            Left err -> parseCatch @(BadResponse f) err x >>= fmap (fmap (const [])) (handleBadResponse @f)
             Right r -> do
                 Logger.debug $ "Recieved response:" Logger..< r
                 setFrontData $ extractFrontData @f @m r 
                 pure $ extractUpdates @f @m r
 
-    sendResponse = HTTP.tryRequest >=> checkCallback @f
+    sendResponse = HTTP.tryRequest >=> checkCallback 
 
-class HasWebEnv f m | m -> f where
-    getFrontData   :: m (FrontData f)
-    setFrontData   :: FrontData f -> m ()
-    getToken       :: m (Token f)
-    getPollingTime :: m PollingTime
 
 class ( WebOnly f URL ~ URL
       , WebOnly f (Token f) ~ Token f
       , WebOnly f (FrontData f) ~ FrontData f
       , WebOnly f PollingTime ~ PollingTime
-      , HasWebEnv f m
-      ) => IsWebFrontEnd f m | m -> f where
+      , HasEnv f m
+      ) => IsWebFrontEnd f m where
 
     type Response f :: Type
 

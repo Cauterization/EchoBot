@@ -34,6 +34,7 @@ library
       Bot.Error
       Bot.Types
       Console.FrontEnd
+      Extended.Arrow
       Extended.HTTP
       Extended.Text
       FrontEnd.FrontEnd

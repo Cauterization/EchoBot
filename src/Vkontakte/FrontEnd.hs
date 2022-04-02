@@ -52,14 +52,34 @@ instance FromJSON FrontData where
 data GoodResponse = GoodResponse { goodTs :: !Text, updates :: [Update]}
     deriving (Show, Generic)
     deriving (FromJSON) via 
-        CustomJSON '[ FieldLabelModifier (StripPrefix "good") -- CamelToSnake
+        CustomJSON '[ FieldLabelModifier (StripPrefix "good") 
+                    , FieldLabelModifier CamelToSnake
                     ] GoodResponse
 
+{-
+>>> eitherDecode @GoodResponse "{\"ts\":\"1265\",\"updates\":[{\"type\":\"message_typing_state\",\"event_id\":\"d3fbf3df74251445730465484c72e666e43c6591\",\"v\":\"5.81\",\"object\":{\"state\":\"typing\",\"from_id\":88659146,\"to_id\":-204518764},\"group_id\":204518764}]}\r\n"
+Left "Error in $: parsing Vkontakte.FrontEnd.GoodResponse(GoodResponse) failed, key \"Ts\" not found"
+-}
 
 data Update = Update        !Message
             | UpdateRepeats !(ID User)  !Repeat
             | Trash         !T.Text
-            deriving (Show, Generic, FromJSON)
+            deriving (Show, Generic)
+
+instance FromJSON Update where
+    parseJSON  = withObject "Update" $ \v -> do
+        t <- v .: "type"
+        case t of
+            "message_new"   -> do 
+                o <- v .: "object"
+                pure $ Update o
+            "message_event" -> do
+                o       <- v .: "object"
+                userID  <- o .: "user_id"
+                payload <- o .: "payload"
+                pure $ UpdateRepeats userID payload
+            _  -> pure $ Trash t
+
 
 data Message = Message
     { from_id      :: !(ID User)

@@ -35,8 +35,8 @@ instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
 
     sendResponse = liftIO . T.putStrLn
 
-getAction :: Text -> Action Console
+getAction :: Update Console -> Action Console
 getAction = \case
     -- "/help" -> 
-    -- "/repeat" -> undefined
+    -- "/repeat" -> 
     t -> SendEcho NotRequired t

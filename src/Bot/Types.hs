@@ -22,7 +22,7 @@ import GHC.Generics (Generic)
 newtype ID e = ID { idVal :: Int }
   deriving newtype (Show, Eq, Ord, Read, Enum, FromJSON)
 
-newtype Repeat = Repeat Int deriving (Generic, Show)
+newtype Repeat = Repeat {unRepeat :: Int} deriving (Generic, Show)
 
 -- newtype FrontEnd f = FrontEnd f 
 --     deriving newtype (FromJSON)

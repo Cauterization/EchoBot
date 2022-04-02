@@ -56,7 +56,7 @@ instance ( Monad m
          , MonadThrow m
          , HTTP.MonadHttp m
          , Logger.HasLogger m
-         , Front.HasWebEnv Vkontakte m
+         , Front.HasEnv Vkontakte m
          ) => IsWebFrontEnd Vkontakte m where
 
     getUpdatesURL = getUpdatesURL
@@ -82,7 +82,7 @@ newFrontData (Token t) = do
            <> "?group_id=204518764"
            <> "&access_token=" <> t
            <> "&v=5.81"
-    HTTP.tryRequest req >>= parse @FrontData
+    HTTP.tryRequest req >>= parse
 
 getUpdatesURL :: Token Vkontakte -> FrontData -> PollingTime -> URL
 getUpdatesURL _ FrontData{..} polling = mconcat 
@@ -97,7 +97,7 @@ handleBadResponse ::
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
-    , Front.HasWebEnv Vkontakte m
+    , Front.HasEnv Vkontakte m
     ) 
     => BadResponse -> m ()
 handleBadResponse BadResponse{..} = case failed of
@@ -109,12 +109,13 @@ handleBadResponse BadResponse{..} = case failed of
     2 -> Logger.warning "Key is out of date. Getting new key..."
         >> Front.getToken >>= newFrontData >>= Front.setFrontData
     3 -> Logger.warning "FrontEnd data is lost, requesting new one..."
-        >> Front.getToken >>= newFrontData >>= Front.setFrontData @Vkontakte
+        >> Front.getToken >>= newFrontData >>= Front.setFrontData
     _ -> Logger.error "Unknown error code. IDK what to do with this."
 
 checkCallback = undefined
 
-getActions :: (Monad m, Front.HasWebEnv Vkontakte m) => Update -> m [Action Vkontakte]
+getActions :: (Monad m, Front.HasEnv Vkontakte m) 
+    => Update -> m [Action Vkontakte]
 getActions = \case
         -- HelpUpdate    uID     -> pure $ Bot.Update $ SendHelp uID
         -- RepeatUpdate  uID     -> pure $ Bot.Update $ SendKeyboard uID
@@ -122,11 +123,11 @@ getActions = \case
         --         pure $ Bot.UpdateRepeats (VKUser uID) rep $ HideKeyboard uID
         Update Message{..} -> pure . Front.SendEcho from_id <$> messageToEcho Message{..}
         Trash t            -> pure []
-        _ -> undefined
 
-messageToEcho :: (Monad m, Front.HasWebEnv Vkontakte m) => Message -> m URL
+
+messageToEcho :: forall m. (Monad m, Front.HasEnv Vkontakte m) =>  Message -> m URL
 messageToEcho Message{..} = do
-    token <- ("&access_token=" <>) . unToken <$> Front.getToken
+    token <- ("&access_token=" <>) . unToken <$> Front.getToken 
     pure $ body <> user <> message <> token <> version <> attachment
   where
     user = "?user_id=" <> T.show from_id
