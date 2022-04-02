@@ -3,7 +3,7 @@ module Vkontakte.Web where
 -- import Data.Aeson hiding (Key)
 import Control.Monad.Catch
 
-import Data.Functor ( (<&>) )
+import Data.Functor ( (<&>), ($>) )
 -- import Extended.Text (Text)
 import Extended.Text (Text)
 import Extended.Text qualified as T
@@ -24,6 +24,7 @@ import Vkontakte.FrontEnd
 import Bot.Error
 import GHC.Generics
 import Data.Aeson
+import Logger.Handle ((.<))
 
 data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
 
@@ -64,6 +65,8 @@ instance ( Monad m
     type Response Vkontakte = GoodResponse 
 
     extractFrontData = fromTs . T.read . goodTs
+
+    type HideKeyboard Vkontakte = ID User
 
     extractUpdates = updates
 
@@ -114,15 +117,19 @@ handleBadResponse BadResponse{..} = case failed of
 
 checkCallback = undefined
 
-getActions :: (Monad m, Front.HasEnv Vkontakte m) 
+getActions :: (Monad m, Front.HasEnv Vkontakte m, Logger.HasLogger m) 
     => Update -> m [Action Vkontakte]
 getActions = \case
         -- HelpUpdate    uID     -> pure $ Bot.Update $ SendHelp uID
         -- RepeatUpdate  uID     -> pure $ Bot.Update $ SendKeyboard uID
         -- UpdateRepeats uID rep ->
         --         pure $ Bot.UpdateRepeats (VKUser uID) rep $ HideKeyboard uID
-        Update Message{..} -> pure . Front.SendEcho from_id <$> messageToEcho Message{..}
-        Trash t            -> pure []
+        Update Message{..} 
+            -> pure . Front.SendEcho from_id <$> messageToEcho Message{..}
+        UpdateRepeats userID rep 
+            -> pure [Front.UpdateRepeats userID rep, Front.HideKeyboard userID]
+        Trash t 
+            -> [] <$ Logger.debug ("That update doesn't look like something meaningful" <> t)
 
 
 messageToEcho :: forall m. (Monad m, Front.HasEnv Vkontakte m) =>  Message -> m URL

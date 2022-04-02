@@ -41,7 +41,7 @@ bot :: forall f m.
     , HasEnv f m
     , MonadIO m
     ) => m ()
-bot = do
+bot = forever $ do
     Logger.info "Getting updates.."
     updates <- getUpdates @f
     Logger.info $ "Recieved " .< length updates <> " new updates."

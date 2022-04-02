@@ -21,7 +21,8 @@ import Deriving.Aeson
       CamelToSnake,
       CustomJSON(CustomJSON),
       FieldLabelModifier,
-      StripPrefix )
+      StripPrefix
+      )
 import qualified Logger.Handle as Logger
 
 data User
@@ -52,13 +53,11 @@ instance FromJSON FrontData where
 data GoodResponse = GoodResponse { goodTs :: !Text, updates :: [Update]}
     deriving (Show, Generic)
     deriving (FromJSON) via 
-        CustomJSON '[ FieldLabelModifier (StripPrefix "good") 
-                    , FieldLabelModifier CamelToSnake
-                    ] GoodResponse
+        CustomJSON '[FieldLabelModifier '[StripPrefix "good", CamelToSnake]] GoodResponse
 
 {-
 >>> eitherDecode @GoodResponse "{\"ts\":\"1265\",\"updates\":[{\"type\":\"message_typing_state\",\"event_id\":\"d3fbf3df74251445730465484c72e666e43c6591\",\"v\":\"5.81\",\"object\":{\"state\":\"typing\",\"from_id\":88659146,\"to_id\":-204518764},\"group_id\":204518764}]}\r\n"
-Left "Error in $: parsing Vkontakte.FrontEnd.GoodResponse(GoodResponse) failed, key \"Ts\" not found"
+Right (GoodResponse {goodTs = "1265", updates = [Trash "message_typing_state"]})
 -}
 
 data Update = Update        !Message
@@ -108,8 +107,7 @@ instance FromJSON Attachment where
 data BadResponse = BadResponse {failed :: !ErrorCode, badTs :: !(Maybe Ts)} 
     deriving (Show, Generic, Eq)
     deriving (FromJSON, ToJSON) via 
-        CustomJSON '[ FieldLabelModifier (StripPrefix "bad") -- CamelToSnake
-                    ] BadResponse
+        CustomJSON '[FieldLabelModifier '[StripPrefix "bad", CamelToSnake]] BadResponse
 
 
 pattern RepeatUpdate, HelpUpdate :: ID User -> Update

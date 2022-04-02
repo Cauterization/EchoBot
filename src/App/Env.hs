@@ -25,7 +25,7 @@ data Env f = Env
     , envPollingTime    :: WebOnly f PollingTime
     }
 
-newEnv :: forall f m. IsFrontEnd f
+newEnv :: forall f. IsFrontEnd f
     => Config f -> IO (Env f)
 newEnv Config{..} = do
     envRepeats <- newIORef M.empty  

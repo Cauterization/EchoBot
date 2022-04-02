@@ -80,7 +80,7 @@ class Ord (User f) => IsFrontEnd f where
 
     type Update f :: Type
 
-    getActions :: (Monad m, HasEnv f m) => Update f -> m [Action f]
+    getActions :: (Monad m, HasEnv f m, Logger.HasLogger m) => Update f -> m [Action f]
 
 class HasEnv f m | m -> f where
     getRepeats     :: User f -> m (Maybe Repeat)
@@ -94,12 +94,19 @@ class HasEnv f m | m -> f where
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Repeat
 getRepeatsFor u = getRepeats u >>= maybe defaultRepeats pure
 
-data Action f =
-    SendEcho (User f) URL
+-- | Wee need it because of vkontakte partial frontEnd data update 
+updateFrontData :: forall f m. (HasEnv f m, Monad m, Semigroup (FrontData f)) => 
+    FrontData f -> m ()
+updateFrontData fd = do
+    oldFD <- getFrontData
+    setFrontData $ fd <> oldFD
+
+data Action f 
+    = SendEcho  (User f) URL 
     -- | SendHelp (SendHelp f)
-    -- | UpdateRepeats (User f) Repeat
+    | UpdateRepeats (User f) Repeat
     -- | SendKeyboard (WebOnly f (SendKeyboard f))
-    -- | HideKeyboard (HideKeyboard f)
+    | HideKeyboard (HideKeyboard f)
 
 class FrontEndIO f (m :: Type -> Type) where
 
@@ -153,4 +160,6 @@ class ( WebOnly f URL ~ URL
     handleBadResponse :: BadResponse f -> m ()
 
     checkCallback :: BL.ByteString -> m ()
+
+    type HideKeyboard f :: Type
 

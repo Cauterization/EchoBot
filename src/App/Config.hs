@@ -47,10 +47,6 @@ deriving via (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f)) ins
     )
     => FromJSON (Config  f)
 
--- deriving instance Show (Config 'Vkontakte)
--- deriving instance Show (Config 'Telegram)
-deriving instance Show (Config Console)
-
 confErr :: String
 confErr = "Parsing config error: "
 
