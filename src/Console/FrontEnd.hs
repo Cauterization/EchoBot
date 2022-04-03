@@ -19,6 +19,8 @@ import Data.Function (on)
 import qualified Data.ByteString.Lazy as BSL
 import Data.String
 import Control.Monad.Catch
+import Data.Functor
+import Control.Monad.Extra
 
 data Console = Console deriving (Generic, FromJSON, Show)
 
@@ -26,11 +28,11 @@ instance IsFrontEnd Console where
 
     type WebOnly   Console _ = NotRequired
 
-    type User      Console = NotRequired
+    type BotUser   Console = NotRequired
 
     type Update    Console = Text
 
-    -- | Is bot waits to number of repeatitions ?
+    -- | Is bot awaits number of repeatitions?
     type FrontData Console = Bool
 
     newFrontData _ = pure False
@@ -41,17 +43,23 @@ instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     
     getUpdates = pure <$> liftIO T.getLine
 
-    sendResponse = liftIO . T.putStrLn
+    sendResponse = liftIO . T.putStrLn . ("λ:" <>)
 
     sendWebResponse _ = pure ()
 
 getAction :: (Monad m, HasEnv Console m, MonadThrow m) => Update Console -> m [Action Console]
 getAction = \case
+
     "/help"   -> pure . SendEcho <$> getHelpMessage
+
     "/repeat" -> setFrontData True >> liftA2 
-        ((<>) `on` pure) (SendEcho <$> getRepeatMessage) (pure $ SendKeyboard NotRequired)
-    t         -> do
-        fd <- getFrontData
-        if fd 
-        then setFrontData False >> pure . UpdateRepeats NotRequired <$> parse @Repeat (fromString $ T.unpack t)
-        else pure . pure $ SendRepeatEcho NotRequired t
+        ((<>) `on` pure) 
+        (SendEcho <$> getRepeatMessage) 
+        (pure $ SendKeyboard NotRequired)
+
+    text      -> fmap pure $ setFrontData @Console False >> ifM getFrontData
+        (pure $ either 
+            (SendEcho . T.pack) 
+            (UpdateRepeats NotRequired) 
+            (eitherDecode (fromString $ T.unpack text)))
+        (pure $ SendRepeatEcho NotRequired text)

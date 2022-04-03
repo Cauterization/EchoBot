@@ -30,21 +30,15 @@ import Control.Monad ((>=>))
 
 data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
 
-body :: Text
-body = "https://api.vk.com/method/messages.send"
-
-version :: Text
-version = "&v=5.81"
-
 instance IsFrontEnd Vkontakte where 
 
-    type WebOnly Vkontakte a = a
+    type WebOnly    Vkontakte a = a
 
-    type User      Vkontakte = ID User
+    type BotUser    Vkontakte = ID User
 
-    type Update    Vkontakte = Update
+    type Update     Vkontakte = Update
 
-    type FrontData Vkontakte = FrontData
+    type FrontData  Vkontakte = FrontData
 
     newFrontData = newFrontData
 
@@ -143,31 +137,20 @@ getActions = \case
 prepareRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) 
     =>  Text -> ID User -> Text -> m URL
 prepareRequest m userID attachment = do
-    token <- prepareToken
-    message <- prepareMessage m
+    token <-  ("&access_token=" <>) . unToken <$> Front.getToken 
+    message <- let str =  ("&message=" <>) in case m of
+        ""        -> pure ""
+        "/help"   -> str . HTTP.stringEncode <$> Front.getHelpMessage
+        "/repeat" -> str . HTTP.stringEncode <$> Front.getRepeatMessage
+        text      -> pure $ str text
     pure $ mconcat 
-        [ body
-        , prepareUser userID
+        [ "https://api.vk.com/method/messages.send"
+        , "?user_id=" <> T.show  userID
         , message
         , token
-        , version
+        , "&v=5.81"
         , attachment
         ]
-
-prepareMessage :: Monad m => Front.HasEnv Vkontakte m => Text -> m Text
-prepareMessage = \case
-    "" -> pure ""
-    "/help" -> str <$> Front.getHelpMessage
-    "/repeat" -> str <$> Front.getRepeatMessage
-    text ->  pure $ str text
-  where
-    str =  ("&message=" <>)
-
-prepareUser :: ID User -> Text
-prepareUser userID = "?user_id=" <> T.show userID
-
-prepareToken :: (Front.HasEnv Vkontakte m, Functor m) => m Text
-prepareToken = ("&access_token=" <>) . unToken <$> Front.getToken 
 
 prepareAttachment :: [Attachment] -> Text
 prepareAttachment = \case

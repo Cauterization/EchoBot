@@ -30,7 +30,7 @@ newtype Repeat = Repeat {unRepeat :: Int} deriving (Generic, Show)
 instance FromJSON Repeat where
     parseJSON r = do
         x <- parseJSON @Int r
-        unless (x `elem` [1..5]) $ fail "incorrect number of default repeatitions"
+        unless (x `elem` [1..5]) $ fail "incorrect number of repeatitions"
         pure $ Repeat x
 
 type URL = Text

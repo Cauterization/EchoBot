@@ -39,6 +39,8 @@ library
       Extended.Text
       Logger.Handle
       Logger.IO
+      Telegram.FrontEnd
+      Telegram.Internal
       Vkontakte.FrontEnd
       Vkontakte.Internal
   other-modules:

@@ -18,7 +18,9 @@ import Bot.Types
 
 import Console.FrontEnd
 
+import Bot.Error
 import Bot.FrontEnd
+
 
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
@@ -37,7 +39,7 @@ bot :: forall f m.
     , HasEnv f m
     , MonadIO m
     ) => m ()
-bot = forever $ do
+bot = forever $ handle (\(e :: BotError) -> error $ show e) $ do
     Logger.info "Getting updates.."
     updates <- getUpdates @f
     Logger.info $ "Recieved " .< length updates <> " new updates."

@@ -65,11 +65,11 @@ instance (Typeable f) => FromJSON (FrontName f) where
         guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
         pure $ FrontName t
 
-class Ord (User f) => IsFrontEnd f where 
+class Ord (BotUser f) => IsFrontEnd f where 
 
     type family WebOnly f a :: Type
 
-    type User f :: Type
+    type BotUser f :: Type
 
     type FrontData f :: Type 
 
@@ -82,8 +82,8 @@ class Ord (User f) => IsFrontEnd f where
         => Update f -> m [Action f]
 
 class HasEnv f m | m -> f where
-    getRepeats       :: User f -> m (Maybe Repeat)
-    setRepeats       :: User f -> Repeat -> m ()
+    getRepeats       :: BotUser f -> m (Maybe Repeat)
+    setRepeats       :: BotUser f -> Repeat -> m ()
     defaultRepeats   :: m Repeat
     getFrontData     :: m (FrontData f)
     setFrontData     :: FrontData f -> m ()
@@ -92,7 +92,7 @@ class HasEnv f m | m -> f where
     getHelpMessage   :: m Text
     getRepeatMessage :: m Text
 
-getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Int
+getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => BotUser f -> m Int
 getRepeatsFor u = getRepeats u >>= fmap unRepeat . maybe defaultRepeats pure
 
 -- | Wee need it because of vkontakte partial frontEnd data update 
@@ -104,8 +104,8 @@ updateFrontData fd = do
 
 data Action f 
     = SendEcho URL
-    | SendRepeatEcho (User f) URL 
-    | UpdateRepeats (User f) Repeat
+    | SendRepeatEcho (BotUser f) URL 
+    | UpdateRepeats (BotUser f) Repeat
     | SendKeyboard (WebOnly f URL)
     | HideKeyboard (WebOnly f URL)
 

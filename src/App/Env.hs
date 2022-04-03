@@ -18,7 +18,7 @@ data Env f = Env
     , envDefaultRepeats :: !Repeat    
     , envHelpMessage    :: !Text
     , envRepeatMessage  :: !Text
-    , envRepeats        :: IORef (M.Map (User f) Repeat)
+    , envRepeats        :: IORef (M.Map (BotUser f) Repeat)
     , envToken          :: WebOnly f (Token f)
     , envFrontData      :: IORef (FrontData f)
     , envPollingTime    :: WebOnly f PollingTime

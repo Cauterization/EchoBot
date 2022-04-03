@@ -18,8 +18,8 @@ import Bot.FrontEnd
 import Bot.Types
 
 import Console.FrontEnd
-
-import Vkontakte.FrontEnd qualified as VK
+import Vkontakte.FrontEnd (Vkontakte)
+import Telegram.FrontEnd (Telegram)
 
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
@@ -37,8 +37,7 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
                      , MonadCatch
                      )
 
-instance ( Ord (User f)
-         ) => HasEnv f (App f) where
+instance Ord (BotUser f) => HasEnv f (App f) where
     getRepeats user  = asks envRepeats>>= (liftIO . readIORef) <&> M.lookup user
     setRepeats user rep = do
         ref <- asks envRepeats
@@ -58,8 +57,8 @@ instance Logger.HasLogger (App f) where
 
 chooseFront :: FilePath -> IO ()
 chooseFront fp = foldl1 handler 
-    [ getConfig @VK.Vkontakte fp >>= newEnv >>= runReaderT (unApp bot)
-    -- , getConfig @'Telegram  fp >>= newEnv >>= runReaderT (unApp app)
+    [ getConfig @Vkontakte fp >>= newEnv >>= runReaderT (unApp bot)
+    , getConfig @Telegram  fp >>= newEnv >>= runReaderT (unApp bot)
     , getConfig @Console   fp >>= newEnv >>= runReaderT (unApp bot)
     ]
   where
