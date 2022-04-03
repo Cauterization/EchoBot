@@ -3,7 +3,6 @@ module Telegram.FrontEnd where
 -- import Data.Aeson hiding (Key)
 import Control.Monad.Catch
 
-import Data.Functor ( (<&>), ($>) )
 -- import Extended.Text (Text)
 import Extended.Text (Text)
 import Extended.Text qualified as T
@@ -26,8 +25,6 @@ import GHC.Generics
 import Data.Aeson
 import Logger.Handle ((.<))
 import qualified Data.ByteString.Lazy as BSL
-import Control.Monad ((>=>))
-import Data.Traversable
 import Data.String (fromString)
 
 data Telegram = Telegram deriving (Show, Generic, FromJSON)
@@ -84,33 +81,46 @@ getActions :: (Monad m, Front.HasEnv Telegram m, Logger.HasLogger m, MonadThrow 
     => Update -> m [Action Telegram]
 getActions = \case
 
-        RepeatUpdate chatID 
-            -> fmap (pure . Front.SendEcho) . prepareRequest chatID "/sendMessage" 
-               . ("&text=" <>) . (<> keyboard) =<< Front.getRepeatMessage
 
-        HelpUpdate chatID
-            -> pure . Front.SendEcho 
-               <$> (prepareRequest  chatID "/sendMessage" . ("&text=" <>) 
-               =<< Front.getHelpMessage)
+        Update _ Message{chat = Chat chatID, text = Just "/repeat"} -> do
+            rMessage <- Front.getRepeatMessage
+            pure . Front.SendEcho <$> 
+                prepareRequest 
+                    chatID 
+                    "/sendMessage" 
+                    ("&text=" <> rMessage <> keyboard)
 
-        EchoUpdate messageID userID chatID 
-            -> fmap (pure . Front.SendRepeatEcho (BotUser userID chatID))
-               $ prepareRequest chatID "/copyMessage"  
-               $ "&from_chat_id=" <> T.show chatID <> "&message_id=" <> T.show messageID
+        Update _ Message{chat = Chat chatID, text = Just "/help"} -> do
+            hMessage <- Front.getHelpMessage
+            pure . Front.SendEcho <$> 
+                prepareRequest 
+                    chatID 
+                    "/sendMessage" 
+                    ("&text=" <> hMessage)
 
-        UpdateRepeats userID messageID chatID repText
+        Update _ Message{chat = Chat chatID, message_id = messageID, from = User userID} 
+            -> pure . Front.SendRepeatEcho (BotUser userID chatID) <$> 
+                prepareRequest 
+                    chatID 
+                    "/copyMessage"  
+                    ("&from_chat_id=" .< chatID <> "&message_id=" .< messageID)
+
+        CallbackUpdate _ CallbackQ
+            { _from = User userID
+            , message = Message{ message_id = ID messageID , chat = Chat chatID }
+            , _data = repText }
             -> do
             rep <- parse $ fromString $ T.unpack repText
-            sequence 
-               [ pure $ Front.UpdateRepeats (BotUser userID chatID) rep
-               , fmap Front.HideKeyboard 
-                   . prepareRequest chatID  "/editMessageReplyMarkup" 
-                   $ "&message_id=" <> T.show messageID ]
+            req <- prepareRequest 
+                    chatID  
+                    "/editMessageReplyMarkup" 
+                    ("&message_id=" .< messageID)
+            pure [ Front.UpdateRepeats (BotUser userID chatID) rep
+                 , Front.HideKeyboard req
+                 ]
 
-        Trash _ t 
-            -> [] <$ Logger.debug ("That update doesn't look like something meaningful: " .< t)
-
-        x -> throwM $ ImpossibleHappened $ "telegram getActions" .< x
+        Trash _ t -> [] <$ 
+            Logger.debug ("That update doesn't look like something meaningful: " .< t)
 
 prepareRequest :: forall m. (Monad m, Front.HasEnv Telegram m) 
     => ID Chat -> Text -> Text -> m URL
@@ -120,7 +130,7 @@ prepareRequest chatID method rest = do
         [ "https://api.telegram.org/bot"
         , token
         , method
-        , "?chat_id=" <> T.show chatID
+        , "?chat_id=" .< chatID
         , rest
         ]
 
@@ -129,7 +139,7 @@ getUpdatesURL (Token t) offset polling = mconcat
     [ "https://api.telegram.org/bot"
     , t
     , "/getUpdates?offset="
-    , T.show offset 
+    , T.show $ offset + 1
     , "&timeout="
     , T.show polling
     ]

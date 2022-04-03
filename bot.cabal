@@ -59,12 +59,10 @@ library
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
-      OverloadedLabels
       OverloadedStrings
       RankNTypes
       RecordWildCards
@@ -72,10 +70,10 @@ library
       StandaloneDeriving
       TypeApplications
       TypeFamilies
-      TypeOperators
       UndecidableInstances
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , conduit
@@ -84,6 +82,8 @@ library
     , directory
     , exceptions
     , extra
+    , generic-arbitrary
+    , hspec
     , http-client
     , http-client-tls
     , http-conduit
@@ -114,12 +114,10 @@ executable bot-exe
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
-      OverloadedLabels
       OverloadedStrings
       RankNTypes
       RecordWildCards
@@ -127,11 +125,11 @@ executable bot-exe
       StandaloneDeriving
       TypeApplications
       TypeFamilies
-      TypeOperators
       UndecidableInstances
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror -fno-warn-unused-imports
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror -Wincomplete-uni-patterns
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , bot
     , bytestring
@@ -141,6 +139,8 @@ executable bot-exe
     , directory
     , exceptions
     , extra
+    , generic-arbitrary
+    , hspec
     , http-client
     , http-client-tls
     , http-conduit
@@ -156,6 +156,7 @@ test-suite bot-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Bot.BotSpec
       Paths_bot
   hs-source-dirs:
       test
@@ -172,12 +173,10 @@ test-suite bot-test
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
-      GADTs
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
-      OverloadedLabels
       OverloadedStrings
       RankNTypes
       RecordWildCards
@@ -185,11 +184,11 @@ test-suite bot-test
       StandaloneDeriving
       TypeApplications
       TypeFamilies
-      TypeOperators
       UndecidableInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , bot
     , bytestring
@@ -199,6 +198,8 @@ test-suite bot-test
     , directory
     , exceptions
     , extra
+    , generic-arbitrary
+    , hspec
     , http-client
     , http-client-tls
     , http-conduit

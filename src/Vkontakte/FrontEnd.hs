@@ -3,7 +3,6 @@ module Vkontakte.FrontEnd where
 -- import Data.Aeson hiding (Key)
 import Control.Monad.Catch
 
-import Data.Functor ( (<&>), ($>) )
 -- import Extended.Text (Text)
 import Extended.Text (Text)
 import Extended.Text qualified as T
@@ -17,7 +16,7 @@ import Extended.HTTP qualified as HTTP
 import qualified Logger.Handle as Logger
 
 import Bot.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
-import Bot.FrontEnd qualified as Front
+import Bot.FrontEnd qualified as Bot
 
 import Vkontakte.Internal 
 
@@ -48,7 +47,7 @@ instance ( Monad m
          , MonadThrow m
          , HTTP.MonadHttp m
          , Logger.HasLogger m
-         , Front.HasEnv Vkontakte m
+         , Bot.HasEnv Vkontakte m
          ) => IsWebFrontEnd m Vkontakte where
 
     getUpdatesURL = getUpdatesURL
@@ -87,19 +86,19 @@ handleBadResponse ::
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
-    , Front.HasEnv Vkontakte m
+    , Bot.HasEnv Vkontakte m
     ) 
     => BadResponse -> m ()
 handleBadResponse BadResponse{..} = case failed of
     1 -> Logger.warning "Update history is out of date. Updating TS... "
         >> maybe
             (Logger.error "Can't update TS - threre is no TS in this response!")
-            (Front.setFrontData . fromTs)
+            (Bot.setFrontData . fromTs)
             badTs
     2 -> Logger.warning "Key is out of date. Getting new key..."
-        >> Front.getToken >>= newFrontData >>= Front.setFrontData
+        >> Bot.getToken >>= newFrontData >>= Bot.setFrontData
     3 -> Logger.warning "FrontEnd data is lost, requesting new one..."
-        >> Front.getToken >>= newFrontData >>= Front.setFrontData
+        >> Bot.getToken >>= newFrontData >>= Bot.setFrontData
     _ -> Logger.error "Unknown error code. IDK what to do with this."
 
 checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
@@ -107,45 +106,42 @@ checkCallback = parse >=> \case
     GoodCallback _ -> pure ()
     BadCallback    -> throwM $ BadCallbackError ""
 
-getActions :: (Monad m, Front.HasEnv Vkontakte m, Logger.HasLogger m) 
+getActions :: (Monad m, Bot.HasEnv Vkontakte m, Logger.HasLogger m, MonadThrow m) 
     => Update -> m [Action Vkontakte]
 getActions = \case
 
-        RepeatUpdate userID 
-            -> pure . Front.SendEcho <$> prepareRequest "/repeat" userID keyboard
+    RepeatUpdate userID 
+        -> pure . Bot.SendRepeatMessage <$> prepareRequest "/repeat" userID keyboard
+                           
+    HelpUpdate userID   
+        -> pure . Bot.SendHelpMessage <$> prepareRequest "/help" userID ""
 
-        HelpUpdate userID
-            -> pure . Front.SendEcho <$> prepareRequest "/help" userID ""
+    EchoUpdate text userID []
+        -> pure . Bot.SendRepeatEcho userID <$> prepareRequest text userID ""
+                           
+    EchoUpdate text userID as
+        -> pure . Bot.SendEcho <$> prepareRequest text userID (prepareAttachment as)
+                                              
+    UpdateRepeats userID rep 
+        -> sequence 
+            [ pure $ Bot.UpdateRepeats userID rep
+            , Bot.HideKeyboard <$> prepareRequest "repeats_updated" userID hideKeyboard
+            ]
+    Trash t -> [] <$
+        Logger.debug ("That update doesn't look like something meaningful: " <> t)
 
-        AttachmentUpdate userID text as
-            -> pure . Front.SendEcho <$> prepareRequest text userID (prepareAttachment as)
-
-        Update Message{..} 
-            -> pure . Front.SendRepeatEcho from_id 
-                <$> prepareRequest text from_id ""
-
-        UpdateRepeats userID rep 
-            -> sequence 
-                [ pure $ Front.UpdateRepeats userID rep
-                , Front.HideKeyboard 
-                    <$> prepareRequest "repeats_updated" userID hideKeyboard
-                ]
-        Trash t 
-            -> [] <$ Logger.debug ("That update doesn't look like something meaningful: " <> t)
-
-
-prepareRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) 
-    =>  Text -> ID User -> Text -> m URL
+prepareRequest :: (Monad m, Bot.HasEnv Vkontakte m) 
+    => Text -> ID User -> Text -> m URL
 prepareRequest m userID attachment = do
-    token <-  ("&access_token=" <>) . unToken <$> Front.getToken 
+    token <-  ("&access_token=" <>) . unToken <$> Bot.getToken 
     message <- let str =  ("&message=" <>) in case m of
         ""        -> pure ""
-        "/help"   -> str . HTTP.stringEncode <$> Front.getHelpMessage
-        "/repeat" -> str . HTTP.stringEncode <$> Front.getRepeatMessage
+        "/help"   -> str . HTTP.stringEncode <$> Bot.getHelpMessage
+        "/repeat" -> str . HTTP.stringEncode <$> Bot.getRepeatMessage
         text      -> pure $ str text
     pure $ mconcat 
         [ "https://api.vk.com/method/messages.send"
-        , "?user_id=" <> T.show  userID
+        , "?user_id=" .< userID
         , message
         , token
         , "&v=5.81"
@@ -154,7 +150,7 @@ prepareRequest m userID attachment = do
 
 prepareAttachment :: [Attachment] -> Text
 prepareAttachment = \case
-    [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
+    [Attachment "sticker" sID _ _] -> "&sticker_id=" .< sID
     as ->  "&attachment=" <> attachmentsToReq as
   where    
     attachmentsToReq = T.intercalate "," . map attachmentToReq

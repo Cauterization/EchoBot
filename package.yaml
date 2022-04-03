@@ -39,6 +39,10 @@ dependencies:
 - time
 - unordered-containers
 
+- QuickCheck
+- generic-arbitrary
+- hspec
+
 default-extensions:
 - AllowAmbiguousTypes
 - ConstraintKinds
@@ -52,12 +56,10 @@ default-extensions:
 - ExistentialQuantification
 - FlexibleContexts
 - FlexibleInstances
-- GADTs
 - ImplicitParams
 - ImportQualifiedPost
 - LambdaCase
 - MultiParamTypeClasses
-- OverloadedLabels
 - OverloadedStrings
 - RankNTypes
 - RecordWildCards
@@ -65,7 +67,6 @@ default-extensions:
 - StandaloneDeriving
 - TypeApplications
 - TypeFamilies
-- TypeOperators
 - UndecidableInstances
 
 library:
@@ -81,7 +82,7 @@ executables:
     - -with-rtsopts=-N
     - -Wall
     - -Werror
-    - -fno-warn-unused-imports
+    - -Wincomplete-uni-patterns
     dependencies:
     - bot
 

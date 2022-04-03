@@ -11,19 +11,18 @@ import Extended.Text qualified as T
 
 import Bot.Types
 import GHC.Generics (Generic)
-import qualified Extended.HTTP as HTTP
-import Control.Monad.Catch
 import Data.Functor ((<&>))
 import Control.Applicative
 import Deriving.Aeson
-    ( Generic,
-      CamelToSnake,
+    ( CamelToSnake,
       CustomJSON(CustomJSON),
       FieldLabelModifier,
       StripPrefix
       )
-import qualified Logger.Handle as Logger
 import Data.Function (on)
+
+import Test.QuickCheck (Arbitrary)
+import Test.QuickCheck.Arbitrary.Generic
 
 data User
 type Key       = T.Text
@@ -65,28 +64,24 @@ data GoodResponse = GoodResponse { goodTs :: !Text, updates :: [Update]}
     deriving (FromJSON) via 
         CustomJSON '[FieldLabelModifier '[StripPrefix "good", CamelToSnake]] GoodResponse
 
-data Update = Update        !Message
+data Update = EchoUpdate    !T.Text (ID User) [Attachment]
+            | HelpUpdate    !(ID User)
+            | RepeatUpdate  !(ID User)
             | UpdateRepeats !(ID User)  !Repeat
             | Trash         !T.Text
             deriving (Show, Generic)
-
-pattern RepeatUpdate, HelpUpdate :: ID User -> Update
-pattern RepeatUpdate userID 
-    <- Update Message{from_id = userID, text = "/repeat"}
-pattern HelpUpdate userID 
-    <- Update Message{from_id = userID, text = "/help"}
-
-pattern AttachmentUpdate ::  ID User -> Text -> [Attachment] -> Update
-pattern AttachmentUpdate userID text as
-    <- Update Message{from_id = userID, text = text, attachments = as@(_:_)}
+            deriving Arbitrary via GenericArbitrary Update
 
 instance FromJSON Update where
     parseJSON  = withObject "Update" $ \v -> do
         t <- v .: "type"
         case t of
             "message_new"   -> do 
-                o <- v .: "object"
-                pure $ Update o
+                Message{..} <- v .: "object"
+                pure $ case text of
+                    "/help"   -> HelpUpdate from_id
+                    "/repeat" -> RepeatUpdate from_id
+                    t         -> EchoUpdate t from_id attachments
             "message_event" -> do
                 o       <- v .: "object"
                 userID  <- o .: "user_id"
@@ -100,13 +95,15 @@ data Message = Message
     , fwd_messages :: [Object]
     , attachments  :: [Attachment]
     } deriving (Show, Generic, FromJSON)
+      deriving Arbitrary via GenericArbitrary Message
 
 data Attachment = Attachment 
-    { _type :: !T.Text 
-    , _id   :: !(ID Attachment)
-    , owner :: !(ID User) 
+    { _type     :: !T.Text 
+    , _id       :: !(ID Attachment)
+    , owner     :: !(ID User) 
     , acessKey  :: !(Maybe T.Text) 
     } deriving (Show, Generic)
+      deriving Arbitrary via GenericArbitrary Attachment
 
 instance FromJSON Attachment where
     parseJSON = withObject "VK_Attachment" $ \v -> do

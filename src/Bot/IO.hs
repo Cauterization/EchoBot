@@ -5,7 +5,7 @@ import Control.Monad.Catch
 
 
 import Data.Aeson 
-import Data.Kind (Type, Constraint)
+import Data.Kind (Type)
 
 
 import Extended.Text (Text)
@@ -20,15 +20,6 @@ import qualified Logger.Handle as Logger
 
 
 import Bot.FrontEnd
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Concurrent (threadDelay)
-
-class MonadWait m where
-    wait :: Int -> m ()
-
-instance MonadIO m => MonadWait m where
-    wait = liftIO . threadDelay . (*1000000)
-
 
 class FrontEndIO f (m :: Type -> Type) where
 
@@ -38,12 +29,17 @@ class FrontEndIO f (m :: Type -> Type) where
 
     sendWebResponse :: WebOnly f Text -> m ()
 
-instance {-# OVERLAPPING #-}
-    ( Monad m
-    , MonadThrow m
-    , HTTP.MonadHttp m
-    , Logger.HasLogger m
+type IsBot f m = ( Monad m
     , MonadCatch m
+    , Logger.HasLogger m
+    , IsFrontEnd f
+    , FrontEndIO f m
+    , HasEnv f m
+    ) 
+
+instance {-# OVERLAPPING #-}
+    ( IsBot f m
+    , HTTP.MonadHttp m
     , IsWebFrontEnd m f
     , FromJSON (Response f)
     , FromJSON (BadResponse f)
@@ -56,7 +52,7 @@ instance {-# OVERLAPPING #-}
         >>= HTTP.tryRequest 
         >>= \x -> case eitherDecode @(Response f) x of
             Left err -> parseCatch @(BadResponse f) err x 
-                    >>= fmap (fmap (const [])) (handleBadResponse @m)
+                    >>= fmap (fmap (const [])) handleBadResponse
             Right r -> do
                 Logger.debug $ "Recieved response: " Logger..< r
                 updateFrontData $ extractFrontData @m r 

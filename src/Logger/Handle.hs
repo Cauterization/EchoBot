@@ -17,7 +17,7 @@ import Control.Applicative ( Alternative((<|>)) )
 
 import Data.Aeson hiding (Error)
 
-import qualified Data.Text as T
+import qualified Extended.Text as T
 
 import GHC.Generics ( Generic )
 
@@ -72,7 +72,7 @@ class HasLogger m where
     mkLog :: Logger m
 
 (.<) :: (Show a) => T.Text -> a -> T.Text
-text .< a = text <> T.pack (show a)
+text .< a = text <> T.show a
 
 infixr 7 .<
 

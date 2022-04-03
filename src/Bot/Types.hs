@@ -2,25 +2,30 @@
 
 module Bot.Types where
 
--- import Control.Applicative ((<|>), Alternative)
 import Control.Monad (unless)
 
 import Data.Aeson ( FromJSON(parseJSON) ) 
--- import Data.List qualified as L
--- import Data.Maybe (fromMaybe)
--- import Data.String (IsString(fromString))
 
 import Extended.Text (Text)
--- import Extended.Text qualified as T
-
--- import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
+import Extended.Text qualified as T
 
 import GHC.Generics (Generic)
 
-newtype ID e = ID { idVal :: Int }
-  deriving newtype (Show, Eq, Ord, Read, Enum, FromJSON)
+import Test.QuickCheck (Arbitrary)
+import Test.QuickCheck.Arbitrary.Generic
 
-newtype Repeat = Repeat {unRepeat :: Int} deriving (Generic, Show)
+newtype ID e = ID { idVal :: Int }
+  deriving newtype (Show, Eq, Ord, Read, Enum, FromJSON, Arbitrary)
+
+
+-- deriving via GenericArbitrary (ID e) instance 
+--     (Generic (ID e), ) 
+--     => Arbitrary (ID e) 
+
+newtype Repeat = Repeat {unRepeat :: Int} 
+    deriving (Generic, Show)
+    deriving newtype Arbitrary
+
 
 instance FromJSON Repeat where
     parseJSON r = do
@@ -32,3 +37,8 @@ type URL = Text
 
 type PollingTime = Int
 
+
+
+-- DEBUG
+instance Arbitrary Text where
+    arbitrary = T.pack <$> arbitrary
