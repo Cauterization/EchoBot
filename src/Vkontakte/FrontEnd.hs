@@ -111,22 +111,27 @@ getActions :: (Monad m, Bot.HasEnv Vkontakte m, Logger.HasLogger m, MonadThrow m
 getActions = \case
 
     RepeatUpdate userID 
-        -> pure . Bot.SendRepeatMessage <$> prepareRequest "/repeat" userID keyboard
+        -> pure . Bot.SendRepeatMessage userID 
+            <$> prepareRequest "/repeat" userID keyboard
                            
     HelpUpdate userID   
-        -> pure . Bot.SendHelpMessage <$> prepareRequest "/help" userID ""
+        -> pure . Bot.SendHelpMessage userID 
+            <$> prepareRequest "/help" userID ""
 
     EchoUpdate text userID []
-        -> pure . Bot.SendRepeatEcho userID <$> prepareRequest text userID ""
+        -> pure . Bot.SendRepeatEcho userID text
+            <$> prepareRequest text userID ""
                            
     EchoUpdate text userID as
-        -> pure . Bot.SendEcho <$> prepareRequest text userID (prepareAttachment as)
+        -> pure . Bot.SendEcho userID text 
+            <$> prepareRequest text userID (prepareAttachment as)
                                               
-    UpdateRepeats userID rep 
-        -> sequence 
-            [ pure $ Bot.UpdateRepeats userID rep
-            , Bot.HideKeyboard <$> prepareRequest "repeats_updated" userID hideKeyboard
-            ]
+    UpdateRepeats userID rep -> sequence 
+        [ pure $ Bot.UpdateRepeats userID rep
+        , Bot.HideKeyboard userID 
+            <$> prepareRequest "repeats_updated" userID hideKeyboard
+        ]
+        
     Trash t -> [] <$
         Logger.debug ("That update doesn't look like something meaningful: " <> t)
 

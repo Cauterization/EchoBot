@@ -29,7 +29,7 @@ import Data.String (fromString)
 
 data Telegram = Telegram deriving (Show, Generic, FromJSON)
 
-data BotUser = BotUser (ID User) (ID Chat) deriving (Eq, Ord)
+data BotUser = BotUser (ID User) (ID Chat) deriving (Show, Eq, Ord)
 
 body :: Text
 body = "https://api.vk.com/method/messages.send"
@@ -82,24 +82,35 @@ getActions :: (Monad m, Front.HasEnv Telegram m, Logger.HasLogger m, MonadThrow 
 getActions = \case
 
 
-        Update _ Message{chat = Chat chatID, text = Just "/repeat"} -> do
+        Update _ Message
+            {chat = Chat chatID, text = Just "/repeat", from = User userID} -> do
             rMessage <- Front.getRepeatMessage
-            pure . Front.SendEcho <$> 
+            pure . Front.SendRepeatMessage (BotUser userID chatID) <$> 
                 prepareRequest 
                     chatID 
                     "/sendMessage" 
                     ("&text=" <> rMessage <> keyboard)
 
-        Update _ Message{chat = Chat chatID, text = Just "/help"} -> do
+        Update _ Message
+            {chat = Chat chatID, text = Just "/help", from = User userID} -> do
             hMessage <- Front.getHelpMessage
-            pure . Front.SendEcho <$> 
+            pure . Front.SendHelpMessage (BotUser userID chatID) <$> 
                 prepareRequest 
                     chatID 
                     "/sendMessage" 
                     ("&text=" <> hMessage)
 
-        Update _ Message{chat = Chat chatID, message_id = messageID, from = User userID} 
-            -> pure . Front.SendRepeatEcho (BotUser userID chatID) <$> 
+        Update _ Message
+            {chat = Chat chatID, message_id = messageID, from = User userID, text = Just text} 
+            -> pure . Front.SendRepeatEcho (BotUser userID chatID) text <$> 
+                prepareRequest 
+                    chatID 
+                    "/copyMessage"  
+                    ("&from_chat_id=" .< chatID <> "&message_id=" .< messageID)
+
+        Update _ Message
+            {chat = Chat chatID, message_id = messageID, from = User userID, text = Nothing} 
+            -> pure . Front.SendEcho (BotUser userID chatID) "" <$> 
                 prepareRequest 
                     chatID 
                     "/copyMessage"  
@@ -116,7 +127,7 @@ getActions = \case
                     "/editMessageReplyMarkup" 
                     ("&message_id=" .< messageID)
             pure [ Front.UpdateRepeats (BotUser userID chatID) rep
-                 , Front.HideKeyboard req
+                 , Front.HideKeyboard (BotUser userID chatID) req
                  ]
 
         Trash _ t -> [] <$ 

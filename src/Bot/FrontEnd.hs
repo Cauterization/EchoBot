@@ -47,7 +47,7 @@ instance (Typeable f) => FromJSON (FrontName f) where
         guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
         pure $ FrontName t
 
-class Ord (BotUser f) => IsFrontEnd f where 
+class (Ord (BotUser f), Show (BotUser f)) => IsFrontEnd f where 
 
     -- | Set NotRequired for no-web front-end or a otherwise
     type family WebOnly f a :: Type
@@ -93,12 +93,12 @@ updateFrontData fd = getFrontData >>= setFrontData . (fd <>)
 
 -- | Bot actions
 data Action f 
-    = SendEcho URL 
-    | SendRepeatEcho (BotUser f) URL 
-    | SendHelpMessage URL
-    | SendRepeatMessage URL
-    | UpdateRepeats (BotUser f) Repeat
-    | HideKeyboard (WebOnly f URL)
+    = SendEcho          (BotUser f) URL Text
+    | SendRepeatEcho    (BotUser f) URL Text
+    | SendHelpMessage   (BotUser f) URL
+    | SendRepeatMessage (BotUser f) URL
+    | UpdateRepeats     (BotUser f) Repeat
+    | HideKeyboard      (BotUser f) (WebOnly f URL)
 
 -- | Class for web front-end only
 class ( WebOnly f (Token f) ~ Token f

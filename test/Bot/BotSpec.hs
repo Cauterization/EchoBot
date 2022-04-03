@@ -39,20 +39,16 @@ import Bot.Types
 testToken :: Text
 testToken = "TestToken"
 
-data BotResponse f
-    = EchoR Text 
-    deriving (Show, Eq)
-
-data Env f = Env
-    { envLogger         :: !(Logger.Logger IO)
-    , envDefaultRepeats :: !Repeat    
-    , envHelpMessage    :: !Text
-    , envRepeatMessage  :: !Text
-    , envRepeats        :: !(IORef (M.Map (BotUser f) Repeat))
-    , envToken          :: !(WebOnly f (Token f))
-    , envFrontData      :: !(IORef (FrontData f))
-    , envPollingTime    :: !(WebOnly f PollingTime)
-    }
+-- data Env f = Env
+--     { envLogger         :: !(Logger.Logger IO)
+--     , envDefaultRepeats :: !Repeat    
+--     , envHelpMessage    :: !Text
+--     , envRepeatMessage  :: !Text
+--     , envRepeats        :: !(IORef (M.Map (BotUser f) Repeat))
+--     , envToken          :: !(WebOnly f (Token f))
+--     , envFrontData      :: !(IORef (FrontData f))
+--     , envPollingTime    :: !(WebOnly f PollingTime)
+--     }
 
 data BotState f = BotState
     { bUpdates :: [Update f]
@@ -64,6 +60,7 @@ initialState :: BotState f
 initialState = BotState
     { bUpdates = []
     , bSenededResponse = []
+    , bRepeats = M.empty
     }
 
 withUpdates :: [Update f] -> (BotState f -> BotState f)
@@ -97,7 +94,9 @@ instance {-# OVERLAPS #-} FrontEndIO f (TestBot f) where
     getUpdates = gets bUpdates
 
 instance HasEnv f (TestBot f) where
-    getRepeats = gets 
+    getRepeats = gets bRepeats
+    setRepeats u r = modify $
+        \BotState{..} -> BotState {bRepeats = M.insert r u bRepeats, ..}
     getToken = "TestToken"
 
 
@@ -118,9 +117,8 @@ class (Arbitrary (Update f), Show (Update f), IsFrontEnd f)
     => TestFront f where
     -- getUpdateType :: Update f -> UpdateType f
     getTextFromUpdate :: Update f -> Text
-    responseFromUpdate :: Update f -> [BotResponse f]
 
-runTestBot :: forall f. IsFrontEnd f => (BotState f -> BotState f) -> IO [BotResponse f]
+runTestBot :: forall f. IsFrontEnd f => (BotState f -> BotState f) -> IO [Action f]
 runTestBot f = do
 
     either 
@@ -128,7 +126,7 @@ runTestBot f = do
             (mapM_ (T.putStrLn . (\(v, t) -> v >. ": " <> t)))
         $ flip evalState (f initialState) 
         $ runExceptT 
-        $ fmap snd $ runWriterT $ unwrapTB $ bot @f
+        $ fmap snd $ runWriterT $ unwrapTB $ recieveActions @f
 
     pure $ bSenededResponse $ flip execState (f initialState) 
         $ runExceptT $ fmap fst $ runWriterT $ unwrapTB $ bot @f
@@ -144,16 +142,9 @@ instance TestFront Vkontakte where
     --     VK.Trash t -> Trash
 
     getTextFromUpdate = \case
-        VK.Update VK.Message{..} -> text
-
-    responseFromUpdate = \case
-        -- VK.RepeatUpdate{} -> RepeatU
-        -- VK.HelpUpdate{} -> HelpU
-        -- VK.AttachmentUpdate{} -> EchoSingleU
-        VK.Update VK.Message{..} -> [EchoR text]
-        -- VK.UpdateRepeats{} -> UpdateRepestsU
-        -- VK.Trash t -> Trash
-
+        VK.EchoUpdate t _ _ -> t
+        VK.HelpUpdate{} -> "/help"
+        VK.RepeatUpdate{} -> "/repeat"
 
 spec :: Spec
 spec = specFront @Vkontakte
@@ -166,11 +157,17 @@ specFront = do
             res <- runTestBot @f (withUpdates [update]) 
             res `shouldBe` [EchoR (getTextFromUpdate @f update)]
 
-isEchoUpdate :: forall f. TestFront f => Update f -> Bool
-isEchoUpdate u = case responseFromUpdate @f u of
-    [EchoR{}] -> True
-    _     -> False
 
+    -- = SendEcho URL 
+    -- | SendRepeatEcho (BotUser f) URL 
+    -- | SendHelpMessage URL
+    -- | SendRepeatMessage URL
+    -- | UpdateRepeats (BotUser f) Repeat
+    -- | HideKeyboard (WebOnly f URL)
+isEchoUpdate :: Update f -> Bool
+isEchoUpdate = any
+    (\case {SendEcho{} -> True; SendRepeatEcho{} -> True; _ -> False}) . _
+    . getActions
 -- import Control.Monad (when)
 -- import qualified Control.Monad.State as S
 -- import Control.Monad.Writer (WriterT, runWriterT, tell)

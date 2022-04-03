@@ -52,11 +52,11 @@ chooseAction u = ifM consoleAwaitsNewNumberOfRepeatitions (getNewReps u) (getAct
 getAction :: (Monad m, HasEnv Console m, MonadThrow m) 
     => Update Console -> m [Action Console]
 getAction = \case 
-    "/help"   -> pure . SendHelpMessage <$> getHelpMessage
+    "/help"   -> pure . SendHelpMessage NotRequired <$> getHelpMessage
 
-    "/repeat" -> flipMode >> (pure . SendRepeatMessage <$> getRepeatMessage )
+    "/repeat" -> flipMode >> (pure . SendRepeatMessage NotRequired <$> getRepeatMessage )
 
-    text      -> pure $ pure $ SendRepeatEcho NotRequired text
+    text      -> pure $ pure $ SendRepeatEcho NotRequired text text
 
 getNewReps :: (Monad m, HasEnv Console m, MonadThrow m) 
     => Update Console -> m [Action Console]
