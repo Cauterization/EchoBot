@@ -48,12 +48,6 @@ instance IsFrontEnd Vkontakte where
 
     newFrontData = newFrontData
 
-    -- type SendEcho 'Vkontakte = User
-    -- type SendHelp 'Vkontakte = User
-    -- type SendKeyboard  f :: Type
-    -- type HideKeyboard  f :: Type
-
-    -- getActions :: GoodResponse -> [Action 'Vkontakte]
     getActions = getActions
 
 instance ( Monad m

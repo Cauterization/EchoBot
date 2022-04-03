@@ -78,7 +78,8 @@ class Ord (User f) => IsFrontEnd f where
 
     type Update f :: Type
 
-    getActions :: (Monad m, HasEnv f m, Logger.HasLogger m) => Update f -> m [Action f]
+    getActions :: (Monad m, HasEnv f m, Logger.HasLogger m, HasEnv f m, MonadThrow m) 
+        => Update f -> m [Action f]
 
 class HasEnv f m | m -> f where
     getRepeats       :: User f -> m (Maybe Repeat)

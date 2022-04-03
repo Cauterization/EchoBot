@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf #-}
 module Console.FrontEnd where
 
 import Data.Text qualified as T
@@ -5,12 +6,19 @@ import Data.Text qualified as T
 import Extended.Text (Text)
 import Extended.Text qualified as T
 
+import Bot.Error
 import Bot.FrontEnd
+import Bot.Types
 import Control.Monad.IO.Class
 import Data.Aeson
 import GHC.Generics
 
 import Bot.IO
+import Control.Applicative
+import Data.Function (on)
+import qualified Data.ByteString.Lazy as BSL
+import Data.String
+import Control.Monad.Catch
 
 data Console = Console deriving (Generic, FromJSON, Show)
 
@@ -22,14 +30,12 @@ instance IsFrontEnd Console where
 
     type Update    Console = Text
 
-    type FrontData Console = NotRequired
+    -- | Is bot waits to number of repeatitions ?
+    type FrontData Console = Bool
 
-    newFrontData _ = pure NotRequired
+    newFrontData _ = pure False
 
-    -- type SendEcho  'Console  = NotRequired
-    -- type SendHelp  'Console  = NotRequired
-
-    getActions = pure . pure . getAction
+    getActions = getAction
 
 instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     
@@ -39,8 +45,13 @@ instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
 
     sendWebResponse _ = pure ()
 
-getAction :: Update Console -> Action Console
+getAction :: (Monad m, HasEnv Console m, MonadThrow m) => Update Console -> m [Action Console]
 getAction = \case
-    -- "/help" -> 
-    -- "/repeat" -> 
-    t -> SendRepeatEcho NotRequired t
+    "/help"   -> pure . SendEcho <$> getHelpMessage
+    "/repeat" -> setFrontData True >> liftA2 
+        ((<>) `on` pure) (SendEcho <$> getRepeatMessage) (pure $ SendKeyboard NotRequired)
+    t         -> do
+        fd <- getFrontData
+        if fd 
+        then setFrontData False >> pure . UpdateRepeats NotRequired <$> parse @Repeat (fromString $ T.unpack t)
+        else pure . pure $ SendRepeatEcho NotRequired t
