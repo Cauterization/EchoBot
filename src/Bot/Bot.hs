@@ -17,10 +17,12 @@ bot = forever $ {-handle handler $-} do
 executeAction :: forall f m. IsBot f m => Action f -> m ()
 executeAction = \case
     UpdateRepeats u r      -> setRepeats u r 
-    SendKeyboard sk        -> sendWebResponse @f sk
     HideKeyboard hk        -> sendWebResponse @f hk 
     SendEcho echo          -> sendResponse @f echo
+    SendHelpMessage echo   -> sendResponse @f echo
+    SendRepeatMessage echo -> sendResponse @f echo
     SendRepeatEcho user se -> getRepeatsFor user 
         >>= flip replicateM_ (sendResponse @f se)
 
 -- handler = undefined
+

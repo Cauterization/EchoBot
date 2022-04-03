@@ -98,7 +98,6 @@ data Action f
     | SendHelpMessage URL
     | SendRepeatMessage URL
     | UpdateRepeats (BotUser f) Repeat
-    | SendKeyboard (WebOnly f URL)
     | HideKeyboard (WebOnly f URL)
 
 -- | Class for web front-end only

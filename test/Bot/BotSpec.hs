@@ -37,21 +37,11 @@ import Bot.Types
 
 
 testToken :: Text
-testToken = 
-
+testToken = "TestToken"
 
 data BotResponse f
     = EchoR Text 
     deriving (Show, Eq)
-
--- data UpdateType f
---     = EchoU
---     | EchoSingleU 
---     | HelpU 
---     | RepeatU 
---     | UpdateRepestsU
---     | Trash
-
 
 data Env f = Env
     { envLogger         :: !(Logger.Logger IO)
@@ -66,7 +56,7 @@ data Env f = Env
 
 data BotState f = BotState
     { bUpdates :: [Update f]
-    , bSenededResponse :: [BotResponse f]
+    , bSenededResponse :: [Action f]
     , bRepeats :: M.Map (BotUser f) Repeat
     }
 
