@@ -20,6 +20,15 @@ import qualified Logger.Handle as Logger
 
 
 import Bot.FrontEnd
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Concurrent (threadDelay)
+
+class MonadWait m where
+    wait :: Int -> m ()
+
+instance MonadIO m => MonadWait m where
+    wait = liftIO . threadDelay . (*1000000)
+
 
 class FrontEndIO f (m :: Type -> Type) where
 
@@ -29,18 +38,13 @@ class FrontEndIO f (m :: Type -> Type) where
 
     sendWebResponse :: WebOnly f Text -> m ()
 
--- instance {-# OVERLAPPING #-}
---     ( Monad m
---     , Token f ~ NotRequired 
---     ) => FrontEndIO f m where
-
 instance {-# OVERLAPPING #-}
     ( Monad m
     , MonadThrow m
     , HTTP.MonadHttp m
     , Logger.HasLogger m
     , MonadCatch m
-    , IsWebFrontEnd f m
+    , IsWebFrontEnd m f
     , FromJSON (Response f)
     , FromJSON (BadResponse f)
     , Show (Response f)
@@ -48,15 +52,16 @@ instance {-# OVERLAPPING #-}
     => FrontEndIO f m where
 
     getUpdates = 
-        getUpdatesURL @f @m <$> getToken <*> getFrontData <*> getPollingTime 
+        getUpdatesURL @m <$> getToken <*> getFrontData <*> getPollingTime 
         >>= HTTP.tryRequest 
         >>= \x -> case eitherDecode @(Response f) x of
-            Left err -> parseCatch @(BadResponse f) err x >>= fmap (fmap (const [])) (handleBadResponse @f)
+            Left err -> parseCatch @(BadResponse f) err x 
+                    >>= fmap (fmap (const [])) (handleBadResponse @m)
             Right r -> do
                 Logger.debug $ "Recieved response: " Logger..< r
-                updateFrontData $ extractFrontData @f @m r 
-                pure $ extractUpdates @f @m r
+                updateFrontData $ extractFrontData @m r 
+                pure $ extractUpdates @m r
 
     sendResponse = HTTP.tryRequest >=> checkCallback 
 
-    sendWebResponse = sendResponse @f @m
+    sendWebResponse = sendResponse @f 

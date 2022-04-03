@@ -1,21 +1,19 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Bot.Types where
 
-import Control.Applicative ((<|>), Alternative)
-import Control.Monad (guard, unless)
+-- import Control.Applicative ((<|>), Alternative)
+import Control.Monad (unless)
 
-import Data.Aeson (FromJSON, parseJSON, withText, withObject, Value (Object, String), (.:), eitherDecode)
-import Data.List qualified as L
-import Data.Maybe (fromMaybe)
-import Data.String (IsString(fromString))
+import Data.Aeson ( FromJSON(parseJSON) ) 
+-- import Data.List qualified as L
+-- import Data.Maybe (fromMaybe)
+-- import Data.String (IsString(fromString))
 
 import Extended.Text (Text)
-import Extended.Text qualified as T
+-- import Extended.Text qualified as T
 
-import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
+-- import Data.Typeable (Typeable, typeOf, Proxy (Proxy))
 
 import GHC.Generics (Generic)
 
@@ -23,9 +21,6 @@ newtype ID e = ID { idVal :: Int }
   deriving newtype (Show, Eq, Ord, Read, Enum, FromJSON)
 
 newtype Repeat = Repeat {unRepeat :: Int} deriving (Generic, Show)
-
--- newtype FrontEnd f = FrontEnd f 
---     deriving newtype (FromJSON)
 
 instance FromJSON Repeat where
     parseJSON r = do

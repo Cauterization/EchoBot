@@ -49,7 +49,7 @@ instance ( Monad m
          , HTTP.MonadHttp m
          , Logger.HasLogger m
          , Front.HasEnv Vkontakte m
-         ) => IsWebFrontEnd Vkontakte m where
+         ) => IsWebFrontEnd m Vkontakte where
 
     getUpdatesURL = getUpdatesURL
 

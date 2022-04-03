@@ -9,7 +9,6 @@ import Data.Aeson.Key (toText)
 import Extended.Text (Text)
 import Extended.Text qualified as T
 
-import Bot.Error
 import Bot.Types
 import GHC.Generics (Generic)
 import qualified Extended.HTTP as HTTP

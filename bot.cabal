@@ -28,7 +28,6 @@ library
       App.App
       App.Config
       App.Env
-      App.Main
       Bot.Bot
       Bot.Error
       Bot.FrontEnd

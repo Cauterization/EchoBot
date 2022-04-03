@@ -1,33 +1,13 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Bot.Bot where
 
-import Control.Exception (IOException, fromException)
-import Control.Monad.Catch
+import Control.Monad.Catch ( MonadCatch )
 import Control.Monad.Reader
-
-import Data.IORef
-
-import GHC.IO.Exception
-
-import App.Config
 import App.Env
-
-import Bot.IO
-import Bot.Types
-
-import Console.FrontEnd
-
-import Bot.Error
 import Bot.FrontEnd
-
-
+import Bot.IO
 import Extended.HTTP qualified as HTTP
-import  Logger.Handle ((.<))
-import  Logger.Handle qualified as Logger
-import qualified Data.Map as M
-import Data.Functor
-import Control.Applicative
+import Logger.Handle ((.<))
+import Logger.Handle qualified as Logger
 
 bot :: forall f m. 
     ( Monad m
@@ -37,9 +17,8 @@ bot :: forall f m.
     , IsFrontEnd f
     , FrontEndIO f m
     , HasEnv f m
-    , MonadIO m
     ) => m ()
-bot = forever $ handle (\(e :: BotError) -> error $ show e) $ do
+bot = forever $ {-handle handler $-} do
     Logger.info "Getting updates.."
     updates <- getUpdates @f
     Logger.info $ "Recieved " .< length updates <> " new updates."
@@ -50,3 +29,5 @@ bot = forever $ handle (\(e :: BotError) -> error $ show e) $ do
         UpdateRepeats u r      -> setRepeats u r 
         SendKeyboard sk        -> sendWebResponse @f sk
         HideKeyboard hk        -> sendWebResponse @f hk
+
+-- handler = undefined

@@ -59,7 +59,7 @@ instance ( Monad m
          , HTTP.MonadHttp m
          , Logger.HasLogger m
          , Front.HasEnv Telegram m
-         ) => IsWebFrontEnd Telegram m where
+         ) => IsWebFrontEnd m Telegram where
 
     getUpdatesURL = getUpdatesURL
 
@@ -84,38 +84,37 @@ getActions :: (Monad m, Front.HasEnv Telegram m, Logger.HasLogger m, MonadThrow 
     => Update -> m [Action Telegram]
 getActions = \case
 
-        RepeatUpdate userID chatID 
-            -> fmap (pure . Front.SendEcho) . prepareRequest userID chatID "/sendMessage" 
-                    . ("&text=" <>) . (<> keyboard) =<< Front.getRepeatMessage
+        RepeatUpdate chatID 
+            -> fmap (pure . Front.SendEcho) . prepareRequest chatID "/sendMessage" 
+               . ("&text=" <>) . (<> keyboard) =<< Front.getRepeatMessage
 
-        HelpUpdate userID chatID
+        HelpUpdate chatID
             -> pure . Front.SendEcho 
-                <$> (prepareRequest  userID chatID "/sendMessage" . ("&text=" <>) 
-                =<< Front.getHelpMessage)
+               <$> (prepareRequest  chatID "/sendMessage" . ("&text=" <>) 
+               =<< Front.getHelpMessage)
 
         EchoUpdate messageID userID chatID 
             -> fmap (pure . Front.SendRepeatEcho (BotUser userID chatID))
-                $ prepareRequest userID chatID "/copyMessage"  
-                    $ "&from_chat_id=" <> T.show chatID <> "&message_id=" <> T.show messageID
+               $ prepareRequest chatID "/copyMessage"  
+               $ "&from_chat_id=" <> T.show chatID <> "&message_id=" <> T.show messageID
 
         UpdateRepeats userID messageID chatID repText
             -> do
             rep <- parse $ fromString $ T.unpack repText
             sequence 
-                [ pure $ Front.UpdateRepeats (BotUser userID chatID) rep
-                , fmap Front.HideKeyboard 
-                    . prepareRequest userID chatID  "/editMessageReplyMarkup" 
-                        $ "&message_id=" <> T.show messageID
-                ]
+               [ pure $ Front.UpdateRepeats (BotUser userID chatID) rep
+               , fmap Front.HideKeyboard 
+                   . prepareRequest chatID  "/editMessageReplyMarkup" 
+                   $ "&message_id=" <> T.show messageID ]
 
         Trash _ t 
             -> [] <$ Logger.debug ("That update doesn't look like something meaningful: " .< t)
 
-        _ -> error "unknown update"
+        x -> throwM $ ImpossibleHappened $ "telegram getActions" .< x
 
 prepareRequest :: forall m. (Monad m, Front.HasEnv Telegram m) 
-    => ID User -> ID Chat -> Text -> Text -> m URL
-prepareRequest userID chatID method rest = do
+    => ID Chat -> Text -> Text -> m URL
+prepareRequest chatID method rest = do
     token <- unToken <$> Front.getToken    
     pure $ mconcat 
         [ "https://api.telegram.org/bot"
@@ -149,7 +148,7 @@ keyboard = ("&reply_markup=" <>) $ HTTP.percentEncode $ object
 checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
 checkCallback cb = parse cb >>= \case
     GoodCallback     _          -> pure ()
-    (BadCallback errCode desc) -> undefined
+    (BadCallback _ desc {-errCode desc-}) -> error $ show desc
 
 handleBadResponse :: (Monad m, Logger.HasLogger m, MonadThrow m) => BadResponse -> m x
-handleBadResponse b@(BadResponse errCode desc) = error $ show b
+handleBadResponse {- b@(BadResponse errCode desc)-} = error . show 

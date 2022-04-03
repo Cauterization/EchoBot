@@ -1,7 +1,4 @@
-{-# LANGUAGE GADTs  #-}
-{-# LANGUAGE TypeFamilyDependencies   #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Bot.FrontEnd where
 
@@ -32,11 +29,6 @@ import qualified Data.ByteString.Lazy as BL
 import Control.Applicative
 import Data.Functor
 
--- data FrontEnd 
---     = Vkontakte 
---     -- | Telegram
---     | Console 
---     deriving (Show, Generic, FromJSON)
 
 frontName :: forall f s. (Typeable f, IsString s) => s
 frontName = 
@@ -48,9 +40,6 @@ newtype Token f = Token {unToken :: Text}
 
 instance Typeable f => FromJSON (Token f) where
     parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
-
-    -- WebOnly 'Console a = NotRequired
-    -- WebOnly f        a = a
 
 data NotRequired = NotRequired deriving (Show, Eq, Ord)
 
@@ -73,7 +62,7 @@ class Ord (BotUser f) => IsFrontEnd f where
 
     type FrontData f :: Type 
 
-    newFrontData :: (Monad m, MonadThrow m, MonadIO m) 
+    newFrontData :: (Monad m, MonadThrow m, HTTP.MonadHttp m) 
          => WebOnly f (Token f) -> m (FrontData f)
 
     type Update f :: Type
@@ -95,12 +84,10 @@ class HasEnv f m | m -> f where
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => BotUser f -> m Int
 getRepeatsFor u = getRepeats u >>= fmap unRepeat . maybe defaultRepeats pure
 
--- | Wee need it because of vkontakte partial frontEnd data update 
-updateFrontData :: forall f m. (HasEnv f m, Monad m, Semigroup (FrontData f)) => 
-    FrontData f -> m ()
-updateFrontData fd = do
-    oldFD <- getFrontData
-    setFrontData $ fd <> oldFD
+-- | Wee need that thing because of vkontakte partial frontEnd data update 
+updateFrontData :: forall f m. (HasEnv f m, Monad m, Semigroup (FrontData f)) 
+    => FrontData f -> m ()
+updateFrontData fd = getFrontData >>= setFrontData . (fd <>)
 
 data Action f 
     = SendEcho URL
@@ -115,7 +102,7 @@ class ( WebOnly f (Token f) ~ Token f
       , WebOnly f PollingTime ~ PollingTime
       , WebOnly f Text ~ Text
       , HasEnv f m
-      ) => IsWebFrontEnd f m where
+      ) => IsWebFrontEnd m f where
 
     type Response f :: Type
 

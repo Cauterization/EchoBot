@@ -3,17 +3,18 @@
 module Bot.Error where
 
 import Control.Exception ( Exception )
-
-import Data.Aeson
+import Control.Monad.Catch
+    ( Exception, MonadThrow(..), handle, MonadCatch ) 
+import Data.Aeson ( FromJSON, eitherDecode )
+import Data.ByteString.Lazy qualified as BSL
 import Data.Text (Text)
 import Data.Text qualified as T
-import Control.Monad.Catch 
-import Data.ByteString.Lazy qualified as BSL
 import Extended.Text (readEither)
 
 data BotError
     = ParsingError Text
     | BadCallbackError Text
+    | ImpossibleHappened Text
     deriving (Show, Exception)
 
 parse :: (FromJSON x, MonadThrow m) => BSL.ByteString -> m x

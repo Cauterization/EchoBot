@@ -23,7 +23,7 @@ type Description = Text
 
 newtype Offset = Offset Int 
     deriving newtype (Show, Eq, Ord, Num, FromJSON)
-    deriving (Monoid) via (Max Int)
+    deriving Monoid via (Max Int)
 
 instance Semigroup Offset where
     (<>) = ((+1) .) . max 
@@ -69,10 +69,10 @@ pattern EchoUpdate :: ID Message -> ID User -> ID Chat -> Update
 pattern EchoUpdate mID uID cID
     <- Update _ Message{message_id = mID,from = User{id = uID}, chat = Chat{id = cID}}
 
-pattern RepeatUpdate, HelpUpdate :: ID User -> ID Chat -> Update
-pattern RepeatUpdate uID cID 
+pattern RepeatUpdate, HelpUpdate :: ID Chat -> Update
+pattern RepeatUpdate cID 
     <- Update _ Message{from = User{id = uID}, chat = Chat{id = cID}, text = Just "/repeat"}
-pattern HelpUpdate uID cID 
+pattern HelpUpdate cID 
     <- Update _ Message{from = User{id = uID}, chat = Chat{id = cID}, text = Just "/help"}
 
 newtype User = User { id :: ID User } 
@@ -94,7 +94,3 @@ data Callback
     deriving (Eq, Show, Generic)
     deriving FromJSON via
         CustomJSON '[SumUntaggedValue] Callback
-
-{-
->>> parseJSON "{\"ok\" : \"False\"}"
--}
