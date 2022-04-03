@@ -5,6 +5,7 @@
 module Vkontakte.FrontEnd where
 
 import Data.Aeson hiding (Key)
+import Data.Aeson.Key (toText)
 
 import Extended.Text (Text)
 import Extended.Text qualified as T
@@ -107,7 +108,7 @@ data Attachment = Attachment
 instance FromJSON Attachment where
     parseJSON = withObject "VK_Attachment" $ \v -> do
         t        <- v .: "type"
-        let _type = T.show t
+        let _type = toText t
         inner    <- v .: t
         _id      <- inner .:  "sticker_id" <|> inner .: "id"
         owner    <- inner .:  "owner_id"   <|> inner .: "from_id"
@@ -118,7 +119,6 @@ data BadResponse = BadResponse {failed :: !ErrorCode, badTs :: !(Maybe Ts)}
     deriving (Show, Generic, Eq)
     deriving (FromJSON, ToJSON) via 
         CustomJSON '[FieldLabelModifier '[StripPrefix "bad", CamelToSnake]] BadResponse
-
 
 pattern RepeatUpdate, HelpUpdate :: ID User -> Update
 pattern RepeatUpdate uID 

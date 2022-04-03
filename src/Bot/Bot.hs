@@ -46,9 +46,8 @@ bot = forever $ do
     Logger.info $ "Recieved " .< length updates <> " new updates."
     actions <- concat <$> mapM getActions updates
     forM_ actions $ \case
-        SendEcho user se -> getRepeatsFor user >>= flip replicateM_ (sendResponse @f se)
-            -- replicateM_ . unRepeat <$> getRepeatsFor user $ putStrLn "asd" -- pure se
-        -- SendHelp sh -> undefined
+        SendEcho user se  -> getRepeatsFor user >>= flip replicateM_ (sendResponse @f se)
+        SendHelp sh       -> sendResponse @f sh
         UpdateRepeats u r -> setRepeats u r 
-        SendKeyboard sk -> sendWebResponse @f sk
-        HideKeyboard hk -> sendWebResponse @f hk
+        SendKeyboard sk   -> sendWebResponse @f sk
+        HideKeyboard hk   -> sendWebResponse @f hk

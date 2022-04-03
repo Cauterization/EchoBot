@@ -30,10 +30,11 @@ import Control.Monad ((>=>))
 
 data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
 
-{-
->>> eitherDecode @(Front.FrontName Vkontakte) "Vkontakte"
-Left "Error in $: Failed reading: not a valid json value at 'Vkontakte'"
--}
+body :: Text
+body = "https://api.vk.com/method/messages.send"
+
+version :: Text
+version = "&v=5.81"
 
 instance IsFrontEnd Vkontakte where 
 
@@ -68,10 +69,6 @@ instance ( Monad m
 
     extractFrontData = fromTs . T.read . goodTs
 
-    -- type SendKeyboard Vkontakte = ID User
-
-    -- type HideKeyboard Vkontakte = ID User
-
     extractUpdates = updates
 
     type BadResponse Vkontakte = BadResponse
@@ -79,8 +76,6 @@ instance ( Monad m
     handleBadResponse = handleBadResponse
 
     checkCallback = checkCallback
-
-    -- newFrontData = newFrontData
 
 newFrontData :: (Monad m, HTTP.MonadHttp m, MonadThrow m) 
     => Token f -> m FrontData
@@ -127,52 +122,50 @@ checkCallback = parse >=> \case
 getActions :: (Monad m, Front.HasEnv Vkontakte m, Logger.HasLogger m) 
     => Update -> m [Action Vkontakte]
 getActions = \case
-        -- HelpUpdate    uID     -> pure $ Bot.Update $ SendHelp uID
-        -- RepeatUpdate  uID     -> pure $ Bot.Update $ SendKeyboard uID
-        -- UpdateRepeats uID rep ->
-        --         pure $ Bot.UpdateRepeats (VKUser uID) rep $ HideKeyboard uID
+
+        RepeatUpdate userID 
+            -> pure . Front.SendEcho userID
+                <$> prepareRequest "/repeat" userID ""
+
+        HelpUpdate userID
+            -> pure . Front.SendEcho userID
+                <$> prepareRequest "/help" userID ""
+
         Update Message{..} 
-            -> pure . Front.SendEcho from_id <$> mkEchoRequest Message{..}
+            -> pure . Front.SendEcho from_id 
+                <$> prepareRequest text from_id (prepareAttachment attachments)
+
         UpdateRepeats userID rep 
             -> sequence [ pure $ Front.UpdateRepeats userID rep
-                        , Front.HideKeyboard <$> mkHideKeyboardRequest userID
+                        , Front.HideKeyboard 
+                            <$> prepareRequest "repeats_updated" userID prepareKeyboard
                         ]
         Trash t 
-            -> [] <$ Logger.debug ("That update doesn't look like something meaningful " <> t)
+            -> [] <$ Logger.debug ("That update doesn't look like something meaningful: " <> t)
 
 
-mkEchoRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) =>  Message -> m URL
-mkEchoRequest Message{..} = do
+prepareRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) 
+    =>  Text -> ID User -> Text -> m URL
+prepareRequest m userID attachment = do
     token <- prepareToken
-    pure $ mconcat [ body
-                   , prepareUser from_id
-                   , if T.null text then "" else prepareMessage text
-                   , token
-                   , version
-                   , attachment
-                   ]
+    message <- prepareMessage m
+    pure $ mconcat 
+        [ body
+        , prepareUser userID
+        , message
+        , token
+        , version
+        , attachment
+        ]
+
+prepareMessage :: Monad m => Front.HasEnv Vkontakte m => Text -> m Text
+prepareMessage = \case
+    "" -> pure ""
+    "/help" -> str <$> Front.getHelpMessage
+    "/repeat" -> str <$> Front.getRepeatMessage
+    text ->  pure $ str text
   where
-    attachment = case attachments of
-            [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
-            as ->  "&attachment=" <> attachmentsToReq as
-    attachmentsToReq = T.intercalate "," . map attachmentToReq
-    attachmentToReq Attachment{..} = mconcat
-        [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
-
-mkHideKeyboardRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) => ID User -> m URL
-mkHideKeyboardRequest userID = do
-    token <- prepareToken
-    pure $ mconcat [ body
-                   , prepareUser userID
-                   , prepareMessage "repeats_updated"
-                   , token
-                   , version
-                   , "&keyboard="
-                   , HTTP.percentEncode ("{\"buttons\":[],\"inline\":false}" :: Text)
-                   ]
-
-prepareMessage :: Text -> Text
-prepareMessage = ("&message=" <>)
+    str =  ("&message=" <>)
 
 prepareUser :: ID User -> Text
 prepareUser userID = "?user_id=" <> T.show userID
@@ -180,8 +173,15 @@ prepareUser userID = "?user_id=" <> T.show userID
 prepareToken :: (Front.HasEnv Vkontakte m, Functor m) => m Text
 prepareToken = ("&access_token=" <>) . unToken <$> Front.getToken 
 
-body :: Text
-body = "https://api.vk.com/method/messages.send"
-
-version :: Text
-version = "&v=5.81"
+prepareAttachment :: [Attachment] -> Text
+prepareAttachment = \case
+    [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
+    as ->  "&attachment=" <> attachmentsToReq as
+  where    
+    attachmentsToReq = T.intercalate "," . map attachmentToReq
+    attachmentToReq Attachment{..} = mconcat
+        [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
+    
+prepareKeyboard :: Text
+prepareKeyboard = "&keyboard=" 
+    <> HTTP.percentEncode @Text "{\"buttons\":[],\"inline\":false}"

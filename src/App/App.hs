@@ -39,15 +39,17 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
 
 instance ( Ord (User f)
          ) => HasEnv f (App f) where
-    getRepeats user = asks envRepeats>>= (liftIO . readIORef) <&> M.lookup user
+    getRepeats user  = asks envRepeats>>= (liftIO . readIORef) <&> M.lookup user
     setRepeats user rep = do
         ref <- asks envRepeats
         liftIO $ readIORef ref >>=  writeIORef ref . M.insert user rep
-    defaultRepeats = asks envDefaultRepeats
-    getToken = asks envToken 
-    getFrontData = asks envFrontData >>= liftIO . readIORef
-    setFrontData fd = asks envFrontData >>= liftIO . flip writeIORef fd
-    getPollingTime = asks envPollingTime
+    defaultRepeats   = asks envDefaultRepeats
+    getToken         = asks envToken 
+    getFrontData     = asks envFrontData >>= liftIO . readIORef
+    setFrontData fd  = asks envFrontData >>= liftIO . flip writeIORef fd
+    getPollingTime   = asks envPollingTime
+    getHelpMessage   = asks envHelpMessage 
+    getRepeatMessage = asks envRepeatMessage  
 
 instance Logger.HasLogger (App f) where
     mkLog v t = do

@@ -36,9 +36,9 @@ class MonadHttp m where
 instance {-# OVERLAPPING #-}MonadIO m => MonadHttp m where
     tryRequest (T.unpack -> initReq) = liftIO $ do
             req <- parseRequest initReq
-            print req
+            -- print req
             resp <- httpBS req <&> BSL.fromStrict . getResponseBody
-            print resp
+            -- print resp
             pure resp
 
 

@@ -81,13 +81,15 @@ class Ord (User f) => IsFrontEnd f where
     getActions :: (Monad m, HasEnv f m, Logger.HasLogger m) => Update f -> m [Action f]
 
 class HasEnv f m | m -> f where
-    getRepeats     :: User f -> m (Maybe Repeat)
-    setRepeats     :: User f -> Repeat -> m ()
-    defaultRepeats :: m Repeat
-    getFrontData   :: m (FrontData f)
-    setFrontData   :: FrontData f -> m ()
-    getToken       :: m (WebOnly f (Token f))
-    getPollingTime :: m (WebOnly f PollingTime)
+    getRepeats       :: User f -> m (Maybe Repeat)
+    setRepeats       :: User f -> Repeat -> m ()
+    defaultRepeats   :: m Repeat
+    getFrontData     :: m (FrontData f)
+    setFrontData     :: FrontData f -> m ()
+    getToken         :: m (WebOnly f (Token f))
+    getPollingTime   :: m (WebOnly f PollingTime)
+    getHelpMessage   :: m Text
+    getRepeatMessage :: m Text
 
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => User f -> m Int
 getRepeatsFor u = getRepeats u >>= fmap unRepeat . maybe defaultRepeats pure
@@ -100,8 +102,8 @@ updateFrontData fd = do
     setFrontData $ fd <> oldFD
 
 data Action f 
-    = SendEcho  (User f) URL 
-    -- | SendHelp (SendHelp f)
+    = SendEcho (User f) URL 
+    | SendHelp URL
     | UpdateRepeats (User f) Repeat
     | SendKeyboard (WebOnly f URL)
     | HideKeyboard (WebOnly f URL)
