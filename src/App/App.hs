@@ -19,7 +19,7 @@ import Bot.Types
 
 import Console.FrontEnd
 
-import Vkontakte.Web qualified as VK
+import Vkontakte.FrontEnd qualified as VK
 
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))

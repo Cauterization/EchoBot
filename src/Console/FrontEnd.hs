@@ -43,4 +43,4 @@ getAction :: Update Console -> Action Console
 getAction = \case
     -- "/help" -> 
     -- "/repeat" -> 
-    t -> SendEcho NotRequired t
+    t -> SendRepeatEcho NotRequired t

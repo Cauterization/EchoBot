@@ -102,8 +102,8 @@ updateFrontData fd = do
     setFrontData $ fd <> oldFD
 
 data Action f 
-    = SendEcho (User f) URL 
-    | SendHelp URL
+    = SendEcho URL
+    | SendRepeatEcho (User f) URL 
     | UpdateRepeats (User f) Repeat
     | SendKeyboard (WebOnly f URL)
     | HideKeyboard (WebOnly f URL)

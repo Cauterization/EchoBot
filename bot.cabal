@@ -40,7 +40,7 @@ library
       Logger.Handle
       Logger.IO
       Vkontakte.FrontEnd
-      Vkontakte.Web
+      Vkontakte.Internal
   other-modules:
       Paths_bot
   hs-source-dirs:

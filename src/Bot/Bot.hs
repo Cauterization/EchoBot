@@ -20,9 +20,6 @@ import Console.FrontEnd
 
 import Bot.FrontEnd
 
-import Vkontakte.Web qualified as VK
-import Vkontakte.Web qualified as VK
-
 import Extended.HTTP qualified as HTTP
 import  Logger.Handle ((.<))
 import  Logger.Handle qualified as Logger
@@ -46,8 +43,8 @@ bot = forever $ do
     Logger.info $ "Recieved " .< length updates <> " new updates."
     actions <- concat <$> mapM getActions updates
     forM_ actions $ \case
-        SendEcho user se  -> getRepeatsFor user >>= flip replicateM_ (sendResponse @f se)
-        SendHelp sh       -> sendResponse @f sh
-        UpdateRepeats u r -> setRepeats u r 
-        SendKeyboard sk   -> sendWebResponse @f sk
-        HideKeyboard hk   -> sendWebResponse @f hk
+        SendEcho echo          -> sendResponse @f echo
+        SendRepeatEcho user se -> getRepeatsFor user >>= flip replicateM_ (sendResponse @f se)
+        UpdateRepeats u r      -> setRepeats u r 
+        SendKeyboard sk        -> sendWebResponse @f sk
+        HideKeyboard hk        -> sendWebResponse @f hk

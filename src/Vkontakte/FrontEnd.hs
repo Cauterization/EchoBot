@@ -1,145 +1,203 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
-
 module Vkontakte.FrontEnd where
 
-import Data.Aeson hiding (Key)
-import Data.Aeson.Key (toText)
+-- import Data.Aeson hiding (Key)
+import Control.Monad.Catch
 
+import Data.Functor ( (<&>), ($>) )
+-- import Extended.Text (Text)
 import Extended.Text (Text)
 import Extended.Text qualified as T
 
-import Bot.Error
+-- import Bot.Error
 import Bot.Types
-import GHC.Generics (Generic)
-import qualified Extended.HTTP as HTTP
-import Control.Monad.Catch
-import Data.Functor ((<&>))
-import Control.Applicative
-import Deriving.Aeson
-    ( Generic,
-      CamelToSnake,
-      CustomJSON(CustomJSON),
-      FieldLabelModifier,
-      StripPrefix
-      )
+
+-- import Data.Traversable
+import Extended.HTTP qualified as HTTP 
+
 import qualified Logger.Handle as Logger
-import Data.Function (on)
 
-data User
-type Key       = T.Text
-type Server    = T.Text
-type Ts        = Int
-type ErrorCode = Int
+import Bot.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
+import Bot.FrontEnd qualified as Front
 
-type FrontUser = ID User
+import Vkontakte.Internal 
 
-data FrontData = FrontData
-    { key    :: !Key
-    , server :: !Server
-    , ts     :: !Ts
-    } deriving (Show, Generic, Eq, ToJSON)
+import Bot.Error
+import GHC.Generics
+import Data.Aeson
+import Logger.Handle ((.<))
+import qualified Data.ByteString.Lazy as BSL
+import Control.Monad ((>=>))
 
-instance Semigroup FrontData where
-    a <> b = FrontData k s t
-      where
-        k = key $ if T.null (key a) then b else a
-        s = server $ if T.null (server a) then b else a
-        t = (max `on` ts) a b
+data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
 
-instance Monoid FrontData where
-    mempty = fromTs 0
+body :: Text
+body = "https://api.vk.com/method/messages.send"
 
-fromTs :: Ts -> FrontData 
-fromTs = FrontData "" ""
+version :: Text
+version = "&v=5.81"
 
-instance FromJSON FrontData where
-    parseJSON = withObject "FrontData VK" $ \v -> do
-        r        <- v .: "response"
-        key      <- r .: "key"
-        server   <- r .: "server"
-        Right ts <- r .: "ts" <&> T.readEither
-        pure $ FrontData{..}
+instance IsFrontEnd Vkontakte where 
 
-data GoodResponse = GoodResponse { goodTs :: !Text, updates :: [Update]}
-    deriving (Show, Generic)
-    deriving (FromJSON) via 
-        CustomJSON '[FieldLabelModifier '[StripPrefix "good", CamelToSnake]] GoodResponse
+    type WebOnly Vkontakte a = a
 
-{-
->>> eitherDecode @GoodResponse "{\"ts\":\"1265\",\"updates\":[{\"type\":\"message_typing_state\",\"event_id\":\"d3fbf3df74251445730465484c72e666e43c6591\",\"v\":\"5.81\",\"object\":{\"state\":\"typing\",\"from_id\":88659146,\"to_id\":-204518764},\"group_id\":204518764}]}\r\n"
-Right (GoodResponse {goodTs = "1265", updates = [Trash "message_typing_state"]})
--}
+    type User      Vkontakte = ID User
 
-data Update = Update        !Message
-            | UpdateRepeats !(ID User)  !Repeat
-            | Trash         !T.Text
-            deriving (Show, Generic)
+    type Update    Vkontakte = Update
 
-instance FromJSON Update where
-    parseJSON  = withObject "Update" $ \v -> do
-        t <- v .: "type"
-        case t of
-            "message_new"   -> do 
-                o <- v .: "object"
-                pure $ Update o
-            "message_event" -> do
-                o       <- v .: "object"
-                userID  <- o .: "user_id"
-                payload <- o .: "payload"
-                pure $ UpdateRepeats userID payload
-            _  -> pure $ Trash t
+    type FrontData Vkontakte = FrontData
 
-data Message = Message
-    { from_id      :: !(ID User)
-    , text         :: !Text
-    , fwd_messages :: [Object]
-    , attachments  :: [Attachment]
-    } deriving (Show, Generic, FromJSON)
+    newFrontData = newFrontData
 
-data Attachment = Attachment 
-    { _type :: !T.Text 
-    , _id   :: !(ID Attachment)
-    , owner :: !(ID User) 
-    , acessKey  :: !(Maybe T.Text) 
-    } deriving (Show, Generic)
+    -- type SendEcho 'Vkontakte = User
+    -- type SendHelp 'Vkontakte = User
+    -- type SendKeyboard  f :: Type
+    -- type HideKeyboard  f :: Type
 
-instance FromJSON Attachment where
-    parseJSON = withObject "VK_Attachment" $ \v -> do
-        t        <- v .: "type"
-        let _type = toText t
-        inner    <- v .: t
-        _id      <- inner .:  "sticker_id" <|> inner .: "id"
-        owner    <- inner .:  "owner_id"   <|> inner .: "from_id"
-        acessKey <- inner .:? "access_key"
-        pure $ Attachment{..}
+    -- getActions :: GoodResponse -> [Action 'Vkontakte]
+    getActions = getActions
 
-data BadResponse = BadResponse {failed :: !ErrorCode, badTs :: !(Maybe Ts)} 
-    deriving (Show, Generic, Eq)
-    deriving (FromJSON, ToJSON) via 
-        CustomJSON '[FieldLabelModifier '[StripPrefix "bad", CamelToSnake]] BadResponse
+instance ( Monad m
+         , MonadThrow m
+         , HTTP.MonadHttp m
+         , Logger.HasLogger m
+         , Front.HasEnv Vkontakte m
+         ) => IsWebFrontEnd Vkontakte m where
 
-pattern RepeatUpdate, HelpUpdate :: ID User -> Update
-pattern RepeatUpdate uID 
-    <- Update Message{from_id = uID, text = "/repeat"}
-pattern HelpUpdate uID 
-    <- Update Message{from_id = uID, text = "/help"}
+    getUpdatesURL = getUpdatesURL
 
-data Callback 
-    = GoodCallback Int
-    | BadCallback 
-    deriving (Eq, Show, Generic)
+    type Response Vkontakte = GoodResponse 
 
-instance FromJSON Callback where
-    parseJSON = withObject "Callback" $ \v -> do
-        GoodCallback <$> v .: "response"
-        <|> pure BadCallback
+    extractFrontData = fromTs . T.read . goodTs
 
--- data Command = SendEchoCommand      Message
---              | SendHelpCommand      (ID User)
---              | SendKeyboardCommand  (ID User)
---              | UpdateRepeatsCommand (ID User) Repeat
---              | HideKeyboardCommand  (ID User)
---              | DoNothingCommand
-    -- Trash t               -> [DoNothing]
+    extractUpdates = updates
+
+    type BadResponse Vkontakte = BadResponse
+
+    handleBadResponse = handleBadResponse
+
+    checkCallback = checkCallback
+
+newFrontData :: (Monad m, HTTP.MonadHttp m, MonadThrow m) 
+    => Token f -> m FrontData
+newFrontData (Token t) = do
+    let req = "https://api.vk.com/method/groups.getLongPollServer"
+           <> "?group_id=204518764"
+           <> "&access_token=" <> t
+           <> "&v=5.81"
+    HTTP.tryRequest req >>= parse
+
+getUpdatesURL :: Token Vkontakte -> FrontData -> PollingTime -> URL
+getUpdatesURL _ FrontData{..} polling = mconcat 
+    [ server 
+    , "?act=a_check&key=", key
+    , "&ts=", T.show ts
+    , "&wait=", T.show polling
+    ]
+
+handleBadResponse :: 
+    ( Monad m
+    , MonadThrow m
+    , HTTP.MonadHttp m
+    , Logger.HasLogger m
+    , Front.HasEnv Vkontakte m
+    ) 
+    => BadResponse -> m ()
+handleBadResponse BadResponse{..} = case failed of
+    1 -> Logger.warning "Update history is out of date. Updating TS... "
+        >> maybe
+            (Logger.error "Can't update TS - threre is no TS in this response!")
+            (Front.setFrontData . fromTs)
+            badTs
+    2 -> Logger.warning "Key is out of date. Getting new key..."
+        >> Front.getToken >>= newFrontData >>= Front.setFrontData
+    3 -> Logger.warning "FrontEnd data is lost, requesting new one..."
+        >> Front.getToken >>= newFrontData >>= Front.setFrontData
+    _ -> Logger.error "Unknown error code. IDK what to do with this."
+
+checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
+checkCallback = parse >=> \case
+    GoodCallback _ -> pure ()
+    BadCallback    -> throwM $ BadCallbackError ""
+
+getActions :: (Monad m, Front.HasEnv Vkontakte m, Logger.HasLogger m) 
+    => Update -> m [Action Vkontakte]
+getActions = \case
+
+        RepeatUpdate userID 
+            -> pure . Front.SendEcho <$> prepareRequest "/repeat" userID keyboard
+
+        HelpUpdate userID
+            -> pure . Front.SendEcho <$> prepareRequest "/help" userID ""
+
+        AttachmentUpdate userID text as
+            -> pure . Front.SendEcho <$> prepareRequest text userID (prepareAttachment as)
+
+        Update Message{..} 
+            -> pure . Front.SendRepeatEcho from_id 
+                <$> prepareRequest text from_id ""
+
+        UpdateRepeats userID rep 
+            -> sequence 
+                [ pure $ Front.UpdateRepeats userID rep
+                , Front.HideKeyboard 
+                    <$> prepareRequest "repeats_updated" userID hideKeyboard
+                ]
+        Trash t 
+            -> [] <$ Logger.debug ("That update doesn't look like something meaningful: " <> t)
+
+
+prepareRequest :: forall m. (Monad m, Front.HasEnv Vkontakte m) 
+    =>  Text -> ID User -> Text -> m URL
+prepareRequest m userID attachment = do
+    token <- prepareToken
+    message <- prepareMessage m
+    pure $ mconcat 
+        [ body
+        , prepareUser userID
+        , message
+        , token
+        , version
+        , attachment
+        ]
+
+prepareMessage :: Monad m => Front.HasEnv Vkontakte m => Text -> m Text
+prepareMessage = \case
+    "" -> pure ""
+    "/help" -> str <$> Front.getHelpMessage
+    "/repeat" -> str <$> Front.getRepeatMessage
+    text ->  pure $ str text
+  where
+    str =  ("&message=" <>)
+
+prepareUser :: ID User -> Text
+prepareUser userID = "?user_id=" <> T.show userID
+
+prepareToken :: (Front.HasEnv Vkontakte m, Functor m) => m Text
+prepareToken = ("&access_token=" <>) . unToken <$> Front.getToken 
+
+prepareAttachment :: [Attachment] -> Text
+prepareAttachment = \case
+    [Attachment "sticker" sID _ _] -> "&sticker_id=" <> T.show sID
+    as ->  "&attachment=" <> attachmentsToReq as
+  where    
+    attachmentsToReq = T.intercalate "," . map attachmentToReq
+    attachmentToReq Attachment{..} = mconcat
+        [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
+    
+keyboard :: Text
+keyboard = ("&keyboard=" <>) $ HTTP.percentEncode $ object 
+    [ "buttons" .= [map keyboardButton [1..5 :: Integer]]
+    , "inline"  .= False
+    ]
+  where  
+    keyboardButton n = object 
+        [ "action" .=  object 
+            [ "type" .= ("callback" :: Text)
+            , "label"   .= show n 
+            , "payload" .= show n
+            ]                   
+        ] 
+
+hideKeyboard :: Text
+hideKeyboard = "&keyboard=" 
+    <> HTTP.percentEncode @Text "{\"buttons\":[],\"inline\":false}"
