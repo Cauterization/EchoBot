@@ -7,16 +7,19 @@ import Control.Monad.Extra
 import Control.Monad.IO.Class
 
 import Data.Aeson
+import Data.Functor
 import Data.String
 
 import Extended.Text (Text)
 import Extended.Text qualified as T
 
+import GHC.Generics
+
 import Bot.Error
 import Bot.FrontEnd
 import Bot.IO
 
-import GHC.Generics
+
 
 
 data Console = Console deriving (Generic, FromJSON, Show)
@@ -57,12 +60,10 @@ getAction = \case
 
 getNewReps :: (Monad m, HasEnv Console m, MonadThrow m) 
     => Update Console -> m [Action Console]
-getNewReps update
-    = flipMode >> either 
-        (throwM . ParsingError . T.pack)
-        (pure . pure . UpdateRepeats NotRequired) 
-        (eitherDecode . fromString $ T.unpack update)
-        
+getNewReps update = flipMode 
+    >> parse (fromString $ T.unpack update) 
+    <&> (pure . UpdateRepeats NotRequired)
+
 instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     
     getUpdates = pure <$> liftIO T.getLine
