@@ -67,7 +67,7 @@ getNewReps update = flipMode
     <&> (pure . UpdateRepeats NotRequired)
 
 
-instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
+instance FrontEndIO Console IO where
     
     getUpdates = pure <$> liftIO T.getLine
 

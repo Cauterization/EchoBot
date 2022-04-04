@@ -15,6 +15,7 @@ import App.Config
 import App.Env
 import Bot.Bot
 import Bot.FrontEnd
+import Bot.IO
 import Console.FrontEnd   (Console)
 import Logger.Handle qualified as Logger
 import Telegram.FrontEnd  (Telegram)
@@ -48,6 +49,8 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
         , MonadThrow
         , MonadCatch
         )
+
+deriving via (FrontEndIO Console IO) instance FrontEndIO Console (App Console) 
 
 instance Ord (BotUser f) => HasEnv f (App f) where
     getRepeats user  = asks envRepeats >>= (liftIO . readIORef) <&> M.lookup user

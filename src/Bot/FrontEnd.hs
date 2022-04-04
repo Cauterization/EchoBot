@@ -36,6 +36,9 @@ instance Typeable f => FromJSON (Token f) where
 -- | Dummy data for non-web front-end (console)
 data NotRequired = NotRequired deriving (Show, Eq, Ord)
 
+instance Semigroup NotRequired where (<>) = const
+instance Monoid    NotRequired where mempty = NotRequired
+
 instance FromJSON NotRequired where
   parseJSON _ = pure NotRequired
 
@@ -86,12 +89,12 @@ class HasEnv f m | m -> f where
     getRepeatMessage :: m Text
 
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => BotUser f -> m Int
-getRepeatsFor u = getRepeats u >>= fmap unRepeat . maybe defaultRepeats pure
+getRepeatsFor u = getRepeats @f u >>= fmap unRepeat . maybe (defaultRepeats @f) pure
 
 -- | Wee need that thing because of vkontakte partial frontEnd data update 
 updateFrontData :: forall f m. (HasEnv f m, Monad m, Semigroup (FrontData f)) 
     => FrontData f -> m ()
-updateFrontData fd = getFrontData >>= setFrontData . (fd <>)
+updateFrontData fd = getFrontData @f >>= setFrontData @f . (fd <>)
 
 -- | Bot actions
 data Action f 

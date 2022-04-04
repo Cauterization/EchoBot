@@ -17,8 +17,6 @@ import Extended.HTTP qualified as HTTP
 import Bot.Error
 
 import qualified Logger.Handle as Logger
-
-
 import Bot.FrontEnd
 
 class FrontEndIO f (m :: Type -> Type) where
