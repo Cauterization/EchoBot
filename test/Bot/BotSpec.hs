@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# Options_GHC -Wno-incomplete-patterns #-}
 
 module Bot.BotSpec
   ( spec,
@@ -8,7 +9,12 @@ module Bot.BotSpec
 where
 
 import Control.Monad.Catch
+    ( Exception(fromException),
+      SomeException(SomeException),
+      MonadCatch(..),
+      MonadThrow(..) )
 import Control.Monad.Except
+    ( join, when, ExceptT(..), runExceptT, MonadError(throwError) )
 import Control.Monad.State
 import Control.Monad.Writer 
 
@@ -42,43 +48,148 @@ import qualified Extended.HTTP as HTTP
 import qualified Extended.Text as T
 
 import Bot.Types
+import Data.Either
+import Data.Aeson
+import Data.String
 
-data TestUpdate f
-    = EchoUpdateT       !T.Text (BotUser f) 
-    | EchoRepeatUpdateT !T.Text (BotUser f) 
-    | HelpUpdateT       !(BotUser f)
-    | RepeatUpdateT     !(BotUser f)
-    | UpdateRepeatsT    !(BotUser f)  !Repeat
-    | TrashT            !T.Text
+import System.IO.Unsafe
+import Data.List
+import Control.Monad.Extra (whenM)
 
-deriving instance (Show (BotUser f)) => Show (TestUpdate f)
-deriving instance (Eq (BotUser f)) => Eq (TestUpdate f)
+spec :: Spec
+spec = do
+    specFront   @Vkontakte
+    specWeb     @Vkontakte
+    specFront   @Telegram
+    specWeb     @Telegram
+    specFront   @Console
+    specConsole 
 
-testToken :: Text
-testToken = "TestToken"
+specFront :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
+specFront = describe (frontName @f <> " common tests:") $ do
 
-data BotState f = BotState
-    { bUpdates :: [Update f]
-    , bSenededResponse :: [Action f]
-    , bRepeats :: M.Map (BotUser f) Repeat
-    , bDefaultRepeats :: Repeat
-    , bFrontData :: FrontData f
-    }
+    it "should echo any non-command input back" 
+        $ property $ propSendsEchoBack @f
 
-initialState :: TestFront f => BotState f
-initialState = BotState
-    { bUpdates = []
-    , bSenededResponse = []
-    , bRepeats = M.empty
-    , bDefaultRepeats = 1
-    , bFrontData = mempty
-    }
+propSendsEchoBack :: forall f. TestFront f => Update f -> Property
+propSendsEchoBack update = 
+    isRepeatEchoUpdate @f update || isEchoUpdate @f update ==> do
+        res <- evalTBot @f (withUpdate update) $
+            recieveActions @f @(TestBot f)
+        eitherURL <- evalTBot @f id 
+            (prepareRequest @f @(TestBot f) update)
+        case toTestUpdate @f update of
+            EchoRepeatUpdateT text userID -> case eitherURL of
+                Right url 
+                    -> res `shouldBe` Right [SendRepeatEcho userID text url]
 
-withUpdates :: [Update f] -> (BotState f -> BotState f)
-withUpdates us BotState{..} = BotState{ bUpdates = bUpdates <> us, .. }
+         
+            EchoUpdateT text userID -> case eitherURL of
+                Right url 
+                    -> res `shouldBe` Right [SendEcho userID text url]
 
-withFrontData :: FrontData f -> (BotState f -> BotState f)
-withFrontData f BotState{..} = BotState{ bFrontData = f, .. }
+specWeb :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
+specWeb = describe (frontName @f <> " web tests:") $ do
+
+    it "should update counter when it recieves updateRepeats update" 
+        $ property $ propWebUpdatesCounter @f
+
+    it "should send corresponding messages according to recieved commands"
+        $ property $ propWebSendsCommands @f
+
+    it "this messages are percent-encoded"
+        $ property $ join $ \text update -> do
+            HTTP.stringEncode text /= text ==> propWebSendsCommands @f text
+
+    it "only last taken repeatition uis taken into account"
+        $ property $ withMaxSuccess 40 $ propWebSetsLastsRepeatition @f
+
+propWebUpdatesCounter :: forall f. TestFront f => Update f -> Property
+propWebUpdatesCounter update = 
+    isUpdateRepeatsUpdate @f update ==> do
+        res <-  execTBot @f (withUpdates [update]) $
+            recieveActions @f @(TestBot f) >>= mapM_ (executeAction @f)
+        case toTestUpdate @f update of
+            UpdateRepeatsT user rep -> 
+                M.lookup user (bRepeats res) `shouldBe` Just rep
+
+propWebSendsCommands :: forall f. TestFront f => Text -> Update f -> Property
+propWebSendsCommands commandText update = 
+    isHelpUpdate @f update || isRepeatUpdate @f update ==> do
+        let f = withHelpText commandText . withRepeatText commandText
+        Right hm  <- evalTBot @f f getHelpMessage 
+        Right rm  <- evalTBot @f f getRepeatMessage
+        Right url <- evalTBot @f (f . withUpdate update) $
+            recieveActions >> prepareRequest @f update
+        case toTestUpdate @f update of
+            HelpUpdateT   user -> HTTP.stringEncode hm `T.isInfixOf` url `shouldBe` True
+            RepeatUpdateT user -> HTTP.stringEncode rm `T.isInfixOf` url `shouldBe` True
+
+propWebSetsLastsRepeatition :: forall f. TestFront f => [Update f] -> Property
+propWebSetsLastsRepeatition updates = 
+    any (isUpdateRepeatsUpdate @f) updates ==> do
+        let us = map (toTestUpdate @f) $ filter (isUpdateRepeatsUpdate @f) updates
+        finalState <- execTBot @f (withUpdates updates) $
+            recieveActions @f @(TestBot f) >>= mapM_ (executeAction @f)
+        foldl f M.empty us `shouldBe` bRepeats finalState
+        foldl f M.empty us `shouldNotBe` M.empty
+  where
+    f map (UpdateRepeatsT userID rep) = M.insert userID rep map
+
+specConsole :: Spec
+specConsole = describe "Console specific tests:" $ do
+
+    it "should update counter when it recieves correct update and it awaits of it" $ do
+
+        property $ forAll (chooseInt (1, 5)) $ 
+            propConsoleUpdatesCounter (ConsoleAwaits True)
+
+    it "should'nt do it otherwise" $ do
+
+        property $ forAll (chooseInt (1, 5)) $ 
+            propConsoleUpdatesCounter (ConsoleAwaits False)
+
+    it "should handle incorrect input" $ do
+
+        property $ \i -> propConsoleUpdatesIncorrectCounter i
+
+    it "should send corresponding messages according to recieved commands" $ do
+
+        property $ forAll (elements ["/help", "/repeat"]) propConsoleSendsCommands
+
+propConsoleUpdatesCounter :: ConsoleAwaits -> Int -> Property
+propConsoleUpdatesCounter awaits repeat = repeat < 5 && repeat > 0 ==> do
+    res <- execTBot (
+        withUpdates [T.show  repeat] . 
+        withFrontData awaits) $
+            recieveActions @Console 
+            >>= mapM_ executeAction
+    if unAwaits awaits 
+    then M.lookup NotRequired (bRepeats res) `shouldBe` Just (Repeat repeat)
+    else bRepeats res `shouldBe` bRepeats (initialState @Console)
+
+propConsoleUpdatesIncorrectCounter :: Text -> Property
+propConsoleUpdatesIncorrectCounter input = 
+    let err = eitherDecode @Repeat $ fromString $ T.unpack input in
+    isLeft err ==> do
+        res <- evalTBot @Console (
+            withUpdates [input] . 
+            withFrontData (ConsoleAwaits True)) 
+            $
+                recieveActions 
+                >>= mapM_ executeAction 
+        res `shouldBe` Left (ParsingError $ T.pack $ fromLeft "" err)
+
+propConsoleSendsCommands :: Text -> Property
+propConsoleSendsCommands input = 
+    input == "/help" || input == "/repeat" ==> do
+        Right hm  <- evalTBot @Console id getHelpMessage 
+        Right rm  <- evalTBot @Console id getRepeatMessage
+        Right [a] <- evalTBot @Console (withUpdate input) 
+            recieveActions 
+        a `shouldBe`  case input of
+                "/help"   -> SendHelpMessage   NotRequired hm
+                "/repeat" -> SendRepeatMessage NotRequired rm
 
 newtype TestBot f a = TestBot 
     {unwrapTB :: 
@@ -93,6 +204,76 @@ newtype TestBot f a = TestBot
         , MonadError BotError
         , MonadState (BotState f))
 
+runTBot :: forall f a. (TestFront f, FrontEndIO f (TestBot f))  
+    => (BotState f -> BotState f) 
+    -> TestBot f a
+    -> IO (Either BotError a, BotState f)
+runTBot f b = do
+    either 
+            (pure . const ()) 
+            (mapM_ (T.putStrLn . (\(v, t) -> v >. ": " <> t)))
+        $ flip evalState (f initialState) 
+        $ runExceptT 
+        $ fmap snd $ runWriterT $ unwrapTB $ 
+            recieveActions @f @(TestBot f)
+
+    pure $ flip runState (f initialState) 
+        $ runExceptT $ fmap fst $ runWriterT $ unwrapTB b
+
+execTBot :: forall f a. (TestFront f, FrontEndIO f (TestBot f))
+    => (BotState f -> BotState f) 
+    -> TestBot f a
+    -> IO (BotState f)
+execTBot f b = snd <$> runTBot f b 
+
+evalTBot :: forall f a. (TestFront f, FrontEndIO f (TestBot f))
+    => (BotState f -> BotState f) 
+    -> TestBot f a
+    -> IO (Either BotError a)
+evalTBot f b = fst <$> runTBot f b
+
+testToken :: Text
+testToken = "TestToken"
+
+data BotState f = BotState
+    { bUpdates :: [Update f]
+    , bSenededResponse :: [Action f]
+    , bRepeats :: M.Map (BotUser f) Repeat
+    , bDefaultRepeats :: Repeat
+    , bFrontData :: FrontData f
+    , bHelpMessage :: Text
+    , bRepeatMessage :: Text
+    , bIsLogerRequired :: Bool
+    }
+
+initialState :: TestFront f => BotState f
+initialState = BotState
+    { bUpdates = []
+    , bSenededResponse = []
+    , bRepeats = M.empty
+    , bDefaultRepeats = 1
+    , bFrontData = mempty
+    , bHelpMessage   = "HelpMessage"
+    , bRepeatMessage = "RepeatMessage"
+    , bIsLogerRequired = True
+    }
+
+withUpdate :: Update f -> (BotState f -> BotState f)
+withUpdate = withUpdates . pure
+
+withUpdates :: [Update f] -> (BotState f -> BotState f)
+withUpdates us BotState{..} = BotState{ bUpdates = bUpdates <> us, .. }
+
+withFrontData :: FrontData f -> (BotState f -> BotState f)
+withFrontData f BotState{..} = BotState{ bFrontData = f, .. }
+
+withHelpText, withRepeatText :: Text -> (BotState f -> BotState f)
+withHelpText   help   BotState{..} =  BotState{ bHelpMessage = help, .. }
+withRepeatText repeat BotState{..} =  BotState{ bRepeatMessage = repeat, .. }
+
+woLogging :: BotState f -> BotState f
+woLogging BotState{..} = BotState{ bIsLogerRequired = False, .. }
+
 instance MonadThrow (TestBot f) where
     throwM e = case fromException (SomeException e) of
         Just err -> throwError err
@@ -102,7 +283,9 @@ instance MonadCatch (TestBot f) where
     catch = undefined
 
 instance Logger.HasLogger (TestBot f) where
-    mkLog v t = when (v >= Logger.Warning) $ tell [(v, t)]
+    mkLog v t = whenM (gets bIsLogerRequired) 
+              $ when (v >= Logger.Warning) 
+              $ tell [(v, t)]
 
 instance FrontEndIO f (TestBot f) where
 
@@ -130,31 +313,20 @@ instance TestFront f => HasEnv f (TestBot f) where
 
     getPollingTime = pure $ onWeb @f (45 :: Int)
 
+    getHelpMessage = pure "HelpMessage"
+
+    getRepeatMessage = pure "RepeatMessage"
+
 class ( Arbitrary (Update f), Show (Update f)
       , Ord (BotUser f)
       , Show (Action f), Eq (Action f)
       , IsFrontEnd f
       , Monoid (WebOnly f URL)
       ) => TestFront f where
+
     onWeb :: a -> WebOnly f a
+
     toTestUpdate :: Update f -> TestUpdate f
-
-runTBot :: forall f a. (TestFront f, FrontEndIO f (TestBot f))  
-    => (BotState f -> BotState f) 
-    -> TestBot f a
-    -> IO (Either BotError a, BotState f)
-runTBot f b = do
-
-    either 
-            (T.putStrLn  . T.show) 
-            (mapM_ (T.putStrLn . (\(v, t) -> v >. ": " <> t)))
-        $ flip evalState (f initialState) 
-        $ runExceptT 
-        $ fmap snd $ runWriterT $ unwrapTB $ 
-            recieveActions @f @(TestBot f)
-
-    pure $ flip runState (f initialState) 
-        $ runExceptT $ fmap fst $ runWriterT $ unwrapTB b
 
 instance TestFront Vkontakte where
 
@@ -212,236 +384,36 @@ instance TestFront Console where
         | "/repeat" `T.isPrefixOf` t  = RepeatUpdateT NotRequired
         | otherwise                   = EchoRepeatUpdateT t NotRequired 
         
-spec :: Spec
-spec = do
-    specFront   @Vkontakte
-    specWeb     @Vkontakte
-    specFront   @Telegram
-    specWeb     @Telegram
-    specFront   @Console
-    specConsole 
+data TestUpdate f
+    = EchoUpdateT       !T.Text (BotUser f) 
+    | EchoRepeatUpdateT !T.Text (BotUser f) 
+    | HelpUpdateT       !(BotUser f)
+    | RepeatUpdateT     !(BotUser f)
+    | UpdateRepeatsT    !(BotUser f)  !Repeat
+    | TrashT            !T.Text
 
-specFront :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
-specFront = describe (frontName @f <> " common tests:") $ do
+deriving instance (Show (BotUser f)) => Show (TestUpdate f)
+deriving instance (Eq (BotUser f)) => Eq (TestUpdate f)
 
-    it "should echo any non-command input back" $ property $ propSendsEchoBack @f
+isRepeatEchoUpdate, isEchoUpdate, isHelpUpdate, isRepeatUpdate, isUpdateRepeatsUpdate 
+    :: forall f. TestFront f => Update f -> Bool    
 
-        -- property $ \(update :: Update f) -> 
-        --     isRepeatEchoUpdate @f update 
-        --     || isEchoUpdate @f update 
-        --     ==> do
-        --         (res, _) <-  runTBot @f (withUpdates [update]) $
-        --             recieveActions @f @(TestBot f)
-        --         (eitherURL, _) <- runTBot @f id 
-        --             (prepareRequest @f @(TestBot f) update)
-        --         case toTestUpdate @f update of
-
-        --             EchoRepeatUpdateT text userID -> case eitherURL of
-        --                 Right url 
-        --                     -> res `shouldBe` Right [SendRepeatEcho userID text url]
-        --                 Left err 
-        --                     -> Left err `shouldBe` Right "url"
-
-        --             EchoUpdateT text userID -> case eitherURL of
-        --                 Right url 
-        --                     -> res `shouldBe` Right [SendEcho userID text url]
-        --                 Left err 
-        --                     -> Left err `shouldBe` Right "url"
-
-propSendsEchoBack :: forall f. TestFront f => Update f -> Property
-propSendsEchoBack update = 
-    isRepeatEchoUpdate @f update || isEchoUpdate @f update 
-        ==> do
-            (res, _) <-  runTBot @f (withUpdates [update]) $
-                recieveActions @f @(TestBot f)
-            (eitherURL, _) <- runTBot @f id 
-                (prepareRequest @f @(TestBot f) update)
-            case toTestUpdate @f update of
-                     
-                EchoRepeatUpdateT text userID -> case eitherURL of
-                    Right url 
-                        -> res `shouldBe` Right [SendRepeatEcho userID text url]
-                    Left err 
-                        -> Left err `shouldBe` Right "url"
-             
-                EchoUpdateT text userID -> case eitherURL of
-                    Right url 
-                        -> res `shouldBe` Right [SendEcho userID text url]
-                    Left err 
-                        -> Left err `shouldBe` Right "url"
-
-
-specWeb :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
-specWeb = describe (frontName @f <> " web tests:") $ do
-
-    it "should update counter when it recieves updateRepeats update" $ do
-
-        property $ \(update :: Update f) ->
-            isUpdateRepeatsUpdate @f update ==> do
-                (_, res) <-  runTBot @f (withUpdates [update]) $
-                    recieveActions @f @(TestBot f) >>= mapM_ (executeAction @f)
-                case toTestUpdate @f update of
-
-                    UpdateRepeatsT user rep -> 
-                        M.lookup user (bRepeats res) `shouldBe` Just rep
-
-specConsole :: Spec
-specConsole = describe "Console specific tests:" $ do
-
-    it "should update counter when it recieves correct update and it awaits it" $ do
-
-        property $ forAll (chooseInt (1, 5)) $ \i -> do
-            
-            (_, res) <- runTBot @Console (
-                withUpdates [T.show  i] . 
-                withFrontData (ConsoleAwaits True)) $
-                    recieveActions @Console @(TestBot Console) 
-                    >>= mapM_ (executeAction @Console)
-            M.lookup NotRequired (bRepeats res) `shouldBe` Just (Repeat i)
-
-    -- it "should'nt do it otherwise" $ do
-
-    --     property $ do
-    --         update <- T.show <$> chooseInt (1, 5)
-    --         (_, res) <- runTBot @Console (
-    --             withUpdates [update] . 
-    --             withFrontData (ConsoleAwaits False)) $
-    --                 recieveActions @Console @(TestBot Console) 
-    --                 >>= mapM_ (executeAction @Console)
-    --         M.lookup NotRequired (bRepeats res) `shouldBe` T.read update
-
-
-isRepeatEchoUpdate :: forall f. TestFront f => Update f -> Bool
 isRepeatEchoUpdate u = case toTestUpdate @f u of
     EchoRepeatUpdateT{} -> True
     _ -> False
 
-isEchoUpdate :: forall f. TestFront f => Update f -> Bool
 isEchoUpdate u = case toTestUpdate @f u of
     EchoUpdateT{} -> True
     _ -> False
 
-isUpdateRepeatsUpdate :: forall f. TestFront f => Update f -> Bool
+isHelpUpdate u = case toTestUpdate @f u of
+    HelpUpdateT{} -> True
+    _ -> False
+
+isRepeatUpdate u = case toTestUpdate @f u of
+    RepeatUpdateT{} -> True
+    _ -> False
+
 isUpdateRepeatsUpdate u = case toTestUpdate @f u of
     UpdateRepeatsT{} -> True
     _ -> False
-
-isCorrectConsoleNewRepeatsInput :: Text -> Bool
-isCorrectConsoleNewRepeatsInput input = case T.readEither @Repeat input of
-    Right r -> r < 5 && r > 1
-    Left err -> False
-
---     it "should output menu for /repeat command" $ do
---       let config = stubConfig
---       let h = handleWith config
---       responses <- runBotWithConfig config $ respond h (MessageEvent "/repeat")
---       responses `shouldSatisfy` any isMenuResponse
-
---     it "should keep the repetition count set by the user" $ do
---       let comment = "comment"
---       let config = stubConfig {confRepetitionCount = 1}
---       let newRepCount = 3
---       let h = handleWith config
---       responses <- runBotWithConfig config $ do
---         [MenuResponse _ opts] <- respond h $ MessageEvent "/repeat"
---         Just request <- pure $ lookup newRepCount opts
---         _ <- respond h request
---         respond h $ MessageEvent comment
---       responses `shouldBe` replicate newRepCount (MessageResponse comment)
-
---     it "should output the help text for /help command" $ do
---       let helpText = "My help text"
---       let config = stubConfig {confHelpReply = helpText}
---       let h = handleWith config
---       responses <- runBotWithConfig config $ respond h $ MessageEvent "/help"
---       responses `shouldBe` [MessageResponse helpText]
-
---     it "should output the predefined menu title for /repeat command" $ do
---       let title = "My title"
---       let config = stubConfig {confRepeatReply = title}
---       let h = handleWith config
---       responses <- runBotWithConfig config $ respond h $ MessageEvent "/repeat"
---       responses `shouldSatisfy` any (isMenuResponseWithTitle title)
-
---     it "should substitute {count} with repetition count in the menu title" $ do
---       let config =
---             stubConfig
---               { confRepeatReply = "My count is {count}, {right}.",
---                 confRepetitionCount = 3
---               }
---       let h = handleWith config
---       responses <- runBotWithConfig config $ respond h $ MessageEvent "/repeat"
---       responses `shouldSatisfy` any (isMenuResponseWithTitle "My count is 3, {right}.")
-
---     it "should not recognize an unknown command" $ do
---       shouldNotRecognizeHelpCommand "/xhelp"
---       shouldNotRecognizeHelpCommand "/ help"
---       shouldNotRecognizeHelpCommand "/helpx"
---       shouldNotRecognizeHelpCommand "/he lp"
---       shouldNotRecognizeHelpCommand "x/help"
---       shouldNotRecognizeHelpCommand "x /help"
-
--- isMenuResponse :: Response T.Text -> Bool
--- isMenuResponse (MenuResponse _ _) = True
--- isMenuResponse _ = False
-
--- isMenuResponseWithTitle :: T.Text -> Response T.Text -> Bool
--- isMenuResponseWithTitle title (MenuResponse t _) = title == t
--- isMenuResponseWithTitle _ _ = False
-
--- shouldNotRecognizeHelpCommand :: T.Text -> Expectation
--- shouldNotRecognizeHelpCommand = shouldRecognizeHelpCommandOrNot False
-
--- shouldRecognizeHelpCommandOrNot :: Bool -> T.Text -> Expectation
--- shouldRecognizeHelpCommandOrNot matchOrNot input = do
---   let helpText = "Help text, not " <> input
---   let config = stubConfig {confHelpReply = helpText}
---   let h = handleWith config
---   response <- runBotWithConfig config $ respond h $ MessageEvent input
---   let expected = [MessageResponse helpText]
---   if matchOrNot
---     then response `shouldBe` expected
---     else response `shouldNotBe` expected
-
--- hasCommandPrefix :: String -> Bool
--- hasCommandPrefix (' ' : xs) = hasCommandPrefix xs
--- hasCommandPrefix ('/' : _) = True
--- hasCommandPrefix _ = False
-
--- runBotWithConfig :: Config -> Interp a -> IO a
--- runBotWithConfig config = runBot (stateWith config)
-
--- runBot :: State -> Interp a -> IO a
--- runBot s0 m = do
---   (a, logMessages) <- S.evalStateT (runWriterT m) s0
---   logMessages `shouldSatisfy` null
---   pure a
-
--- handleWith :: Config -> Handle Interp T.Text
--- handleWith config =
---   Handle
---     { hGetState = S.get,
---       hModifyState' = S.modify',
---       hLogHandle = logHandle,
---       hConfig = config,
---       hTextFromMessage = Just,
---       hMessageFromText = id
---     }
-
--- logHandle :: Logger.Handle Interp
--- logHandle =
---   Logger.Handle
---     { Logger.hLowLevelLog =
---         \level text -> when (level >= Logger.Warning) $ tell [(level, text)]
---     }
-
--- stubConfig :: Config
--- stubConfig =
---   Config
---     { confRepeatReply = T.empty,
---       confHelpReply = T.empty,
---       confRepetitionCount = 1
---     }
-
--- stateWith :: Config -> State
--- stateWith = either (error . T.unpack) id . makeState

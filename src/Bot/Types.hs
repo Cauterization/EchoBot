@@ -21,7 +21,6 @@ newtype Repeat = Repeat {unRepeat :: Int}
     deriving (Generic, Show, Eq, Ord)
     deriving newtype (Arbitrary, Num, Read)
 
-
 instance FromJSON Repeat where
     parseJSON r = do
         x <- parseJSON @Int r
