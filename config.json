@@ -9,7 +9,7 @@
     },
 
     "" : "Vkontakte | Telegram | Console",
-    "FrontEnd" : "Vkontakte",
+    "FrontEnd" : "Console",
 
     "" : "n ∈ [1..5]",
     "DefaultRepeats" : 5,
@@ -20,9 +20,9 @@
 
     "Token" :{
 
-        "Vkontakte" : "vk_token",
+        "Vkontakte" : "587e501d3ae20189e5819e02c50d2a4c375b17d4810cda7b6e3094df272fb6388e8805d8cf67ad5b93b64",
 
-        "Telegram" : "tg_token"
+        "Telegram" : "1376310896:AAGB3miQnZQSL7qwAZ6Ouv1-UUXakaqU9vs"
 
     },
 
