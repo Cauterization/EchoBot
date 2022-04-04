@@ -55,17 +55,6 @@ deriving instance (Eq (BotUser f)) => Eq (TestUpdate f)
 testToken :: Text
 testToken = "TestToken"
 
--- data Env f = Env
---     { envLogger         :: !(Logger.Logger IO)
---     , envDefaultRepeats :: !Repeat    
---     , envHelpMessage    :: !Text
---     , envRepeatMessage  :: !Text
---     , envRepeats        :: !(IORef (M.Map (BotUser f) Repeat))
---     , envToken          :: !(WebOnly f (Token f))
---     , envFrontData      :: !(IORef (FrontData f))
---     , envPollingTime    :: !(WebOnly f PollingTime)
---     }
-
 data BotState f = BotState
     { bUpdates :: [Update f]
     , bSenededResponse :: [Action f]
@@ -84,7 +73,7 @@ initialState = BotState
     }
 
 withUpdates :: [Update f] -> (BotState f -> BotState f)
-withUpdates us BotState{..} =  BotState{ bUpdates = bUpdates <> us, .. }
+withUpdates us BotState{..} = BotState{ bUpdates = bUpdates <> us, .. }
 
 newtype TestBot f a = TestBot 
     {unwrapTB :: 
@@ -130,19 +119,6 @@ instance TestFront f => HasEnv f (TestBot f) where
     getFrontData = gets bFrontData
 
     getToken = pure $ onWeb @f $ Token @f "BotToken"
-
--- class HasEnv f m | m -> f where
---     getRepeats       :: BotUser f -> m (Maybe Repeat)
---     setRepeats       :: BotUser f -> Repeat -> m ()
---     defaultRepeats   :: m Repeat
---     getFrontData     :: m (FrontData f)
---     setFrontData     :: FrontData f -> m ()
---     getToken         :: m (WebOnly f (Token f))
---     getPollingTime   :: m (WebOnly f PollingTime)
---     getHelpMessage   :: m Text
---     getRepeatMessage :: m Text
-
--- instance {-# OVERLAPS #-} HTTP.MonadHttp (TestBot f)
 
 class ( Arbitrary (Update f), Show (Update f)
       , Ord (BotUser f)
@@ -195,6 +171,14 @@ instance TestFront Vkontakte where
 
         VK.Trash t -> TrashT t
 
+instance TestFront Telegram where
+
+    onWeb = id
+
+    toTestUpdate = \case
+
+        
+
 instance TestFront Console where
 
     onWeb _ = NotRequired
@@ -211,41 +195,36 @@ instance TestFront Console where
 
 spec :: Spec
 spec = do
-    -- specFront @Vkontakte
+    specFront @Vkontakte
+    specFront @Telegram
     specFront @Console
 
 specFront :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
 specFront = do
 
     it "should echo any non-command input back" $ do
+
         property $ \(update :: Update f) -> 
             isRepeatEchoUpdate @f update 
-            || isEchoUpdate @f update ==> case toTestUpdate @f update of
+            || isEchoUpdate @f update 
+            ==> do
+                (res, _) <-  runTBot @f (withUpdates [update]) $
+                    recieveActions @f @(TestBot f)
+                (eitherURL, _) <- runTBot @f id 
+                    (prepareRequest @f @(TestBot f) update)
+                case toTestUpdate @f update of
 
-    --         EchoRepeatUpdateT text userID -> do
+                    EchoRepeatUpdateT text userID -> case eitherURL of
+                        Right url 
+                            -> res `shouldBe` Right [SendRepeatEcho userID text url]
+                        Left err 
+                            -> Left err `shouldBe` Right "url"
 
-    --             (res, _) <-  runTBot @f (withUpdates [update]) $
-    --                 recieveActions @f @(TestBot f)
-
-    --             (eitherURL, _) <- runTBot @f id 
-    --                 (prepareRequest @f @(TestBot f) update)
-    --             let EchoRepeatUpdateT text userID = toTestUpdate @f update
-    --             case eitherURL of
-    --                 Right url -> res `shouldBe` Right [SendRepeatEcho userID text url]
-    --                 Left err -> Left err `shouldBe` Right "url"
-
-
-    --         EchoUpdateT text userID -> do
-
-    --             (res, _) <-  runTBot @f (withUpdates [update]) $
-    --                 recieveActions @f @(TestBot f)
-
-    --             (eitherURL, _) <- runTBot @f id 
-    --                 (prepareRequest @f @(TestBot f)update)
-    --             case eitherURL of
-    --                 Right url -> res `shouldBe` Right [SendEcho userID text url]
-    --                 Left err -> Left err `shouldBe` Right "url"
-            _ -> pure ()
+                    EchoUpdateT text userID -> case eitherURL of
+                        Right url 
+                            -> res `shouldBe` Right [SendEcho userID text url]
+                        Left err 
+                            -> Left err `shouldBe` Right "url"
 
 
 isRepeatEchoUpdate :: forall f. TestFront f => Update f -> Bool

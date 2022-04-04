@@ -24,7 +24,7 @@ newtype ID e = ID { idVal :: Int }
 
 newtype Repeat = Repeat {unRepeat :: Int} 
     deriving (Generic, Show, Eq)
-    deriving newtype (Arbitrary, Num)
+    deriving newtype (Arbitrary, Num, Read)
 
 
 instance FromJSON Repeat where

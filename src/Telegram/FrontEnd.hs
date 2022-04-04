@@ -16,7 +16,7 @@ import Extended.HTTP qualified as HTTP
 import qualified Logger.Handle as Logger
 
 import Bot.FrontEnd (IsFrontEnd, IsWebFrontEnd, Token(..), Action)
-import Bot.FrontEnd qualified as Front
+import Bot.FrontEnd qualified as Bot
 
 import Telegram.Internal 
 
@@ -55,7 +55,7 @@ instance ( Monad m
          , MonadThrow m
          , HTTP.MonadHttp m
          , Logger.HasLogger m
-         , Front.HasEnv Telegram m
+         , Bot.HasEnv Telegram m
          ) => IsWebFrontEnd m Telegram where
 
     getUpdatesURL = getUpdatesURL
@@ -65,9 +65,11 @@ instance ( Monad m
     extractFrontData GoodResponse{..} = mconcat $ map (Offset . getOffsetFromUpdate) result
       where
         getOffsetFromUpdate = \case
-            Update         (ID i) _ -> i
-            CallbackUpdate (ID i) _ -> i
-            Trash          (ID i) _ -> i
+            EchoUpdate    (ID updateID) _ _ _ _ -> updateID
+            RepeatUpdate  (ID updateID) _ _     -> updateID
+            HelpUpdate    (ID updateID) _ _     -> updateID
+            UpdateRepeats (ID updateID) _ _ _ _ -> updateID
+            Trash         (ID updateID) _       -> updateID
 
     extractUpdates = result 
 
@@ -77,66 +79,89 @@ instance ( Monad m
 
     checkCallback = checkCallback
 
-getActions :: (Monad m, Front.HasEnv Telegram m, Logger.HasLogger m, MonadThrow m) 
+-- data Update 
+--     = EchoUpdate    !(ID Update) !Message
+--     | RepeatUpdate  !(ID Update)
+--     | HelpUpdate    !(ID Update)
+--     | UpdateRepeats !(ID Update) !CallbackQ
+--     | Trash         !(ID Update) !Object
+--     deriving (Show, Generic, Eq)
+-- instance FromJSON Update where
+--     parseJSON = withObject "Update" $ \v -> do
+--         updateID <- v .: "update_id"
+--         asum 
+--             [ v .: "message" <&> \case
+--                 Message{text = Just "/help"}   -> HelpUpdate updateID        
+--                 Message{text = Just "/repeat"} -> RepeatUpdate updateID        
+--                 Message{..} -> EchoUpdate updateID Message{..}        
+--             , UpdateRepeats updateID <$> v .: "callback_query" 
+--             , pure $ Trash updateID v
+--             ]
+
+
+getActions :: (Monad m, Bot.HasEnv Telegram m, Logger.HasLogger m, MonadThrow m) 
     => Update -> m [Action Telegram]
 getActions = \case
 
 
-        Update _ Message
-            {chat = Chat chatID, text = Just "/repeat", from = User userID} -> do
-            rMessage <- Front.getRepeatMessage
-            pure . Front.SendRepeatMessage (BotUser userID chatID) <$> 
-                prepareRequest 
-                    chatID 
-                    "/sendMessage" 
-                    ("&text=" <> rMessage <> keyboard)
 
-        Update _ Message
-            {chat = Chat chatID, text = Just "/help", from = User userID} -> do
-            hMessage <- Front.getHelpMessage
-            pure . Front.SendHelpMessage (BotUser userID chatID) <$> 
-                prepareRequest 
-                    chatID 
-                    "/sendMessage" 
-                    ("&text=" <> hMessage)
+    -- = EchoUpdate    !(ID Update) !(ID User) !(ID Chat) !(ID Message) 
+    -- | RepeatUpdate  !(ID Update) !(ID User) !(ID Chat)
+    -- | HelpUpdate    !(ID Update) !(ID User) !(ID Chat)
+    -- | UpdateRepeats !(ID Update) !(ID User) !(ID Chat) !Rep
+    -- | Trash         !(ID Update) !Object
+            
+    u@(RepeatUpdate (ID updateID) userID chatID) -> do
+        rMessage <- Bot.getRepeatMessage
+        pure . Bot.SendRepeatMessage (BotUser userID chatID) <$> 
+            prepareRequest u
+               
+    u@(HelpUpdate (ID updateID) userID chatID) -> do
+        hMessage <- Bot.getHelpMessage
+        pure . Bot.SendHelpMessage (BotUser userID chatID) <$> 
+            prepareRequest u
+                
+    u@(EchoUpdate (ID updateID) userID chatID(ID messageID) (Just text)) -> 
+        pure . Bot.SendRepeatEcho (BotUser userID chatID) text <$> 
+            prepareRequest u
+               
+    u@(EchoUpdate (ID updateID) userID chatID (ID messageID) Nothing) -> 
+        pure . Bot.SendEcho (BotUser userID chatID) "" <$> 
+            prepareRequest u
+              
+    u@(UpdateRepeats (ID updateID) userID chatID (ID messageID) repeat) -> do
+        req <- prepareRequest u
+        pure [ Bot.UpdateRepeats (BotUser userID chatID) repeat
+             , Bot.HideKeyboard (BotUser userID chatID) req
+             ]
 
-        Update _ Message
-            {chat = Chat chatID, message_id = messageID, from = User userID, text = Just text} 
-            -> pure . Front.SendRepeatEcho (BotUser userID chatID) text <$> 
-                prepareRequest 
-                    chatID 
-                    "/copyMessage"  
-                    ("&from_chat_id=" .< chatID <> "&message_id=" .< messageID)
+    Trash _ t -> [] <$ 
+        Logger.debug ("That update doesn't look like something meaningful: " .< t)
 
-        Update _ Message
-            {chat = Chat chatID, message_id = messageID, from = User userID, text = Nothing} 
-            -> pure . Front.SendEcho (BotUser userID chatID) "" <$> 
-                prepareRequest 
-                    chatID 
-                    "/copyMessage"  
-                    ("&from_chat_id=" .< chatID <> "&message_id=" .< messageID)
+prepareRequest :: forall m. (Monad m, Bot.HasEnv Telegram m) 
+    => Update -> m URL
+prepareRequest update = do
+    token <- unToken <$> Bot.getToken  
 
-        CallbackUpdate _ CallbackQ
-            { _from = User userID
-            , message = Message{ message_id = ID messageID , chat = Chat chatID }
-            , _data = repText }
-            -> do
-            rep <- parse $ fromString $ T.unpack repText
-            req <- prepareRequest 
-                    chatID  
-                    "/editMessageReplyMarkup" 
-                    ("&message_id=" .< messageID)
-            pure [ Front.UpdateRepeats (BotUser userID chatID) rep
-                 , Front.HideKeyboard (BotUser userID chatID) req
-                 ]
+    let chatID = case update of
+            EchoUpdate    _ _ chatID _ _ -> chatID
+            RepeatUpdate  _ _ chatID -> chatID
+            HelpUpdate    _ _ chatID -> chatID
+            UpdateRepeats _ _ chatID _ _ -> chatID 
 
-        Trash _ t -> [] <$ 
-            Logger.debug ("That update doesn't look like something meaningful: " .< t)
+        method = case update of
+            UpdateRepeats{} -> "/editMessageReplyMarkup" 
+            EchoUpdate{}    -> "/copyMessage" 
+            _               -> "/sendMessage"
 
-prepareRequest :: forall m. (Monad m, Front.HasEnv Telegram m) 
-    => ID Chat -> Text -> Text -> m URL
-prepareRequest chatID method rest = do
-    token <- unToken <$> Front.getToken    
+    rest <- case update of
+        RepeatUpdate{} -> ("&text=" <>) . (<> keyboard) <$> Bot.getRepeatMessage
+        HelpUpdate{} -> ("&text=" <>) <$> Bot.getHelpMessage 
+        EchoUpdate _ _ (ID chatID) (ID messageID) _ -> pure $ 
+            "&from_chat_id=" .< chatID <> "&message_id=" .< messageID
+        UpdateRepeats _ _ _ messageID _ -> pure $ "&message_id=" .< messageID
+        _ -> pure ""
+        
     pure $ mconcat 
         [ "https://api.telegram.org/bot"
         , token
@@ -144,8 +169,19 @@ prepareRequest chatID method rest = do
         , "?chat_id=" .< chatID
         , rest
         ]
+-- prepareRequest :: forall m. (Monad m, Bot.HasEnv Telegram m) 
+--     => ID Chat -> Text -> Text -> m URL
+-- prepareRequest chatID method rest = do
+--     token <- unToken <$> Bot.getToken    
+--     pure $ mconcat 
+--         [ "https://api.telegram.org/bot"
+--         , token
+--         , method
+--         , "?chat_id=" .< chatID
+--         , rest
+--         ]
 
-getUpdatesURL :: Token Telegram -> Front.FrontData Telegram -> PollingTime -> URL
+getUpdatesURL :: Token Telegram -> Bot.FrontData Telegram -> PollingTime -> URL
 getUpdatesURL (Token t) offset polling = mconcat 
     [ "https://api.telegram.org/bot"
     , t

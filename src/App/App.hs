@@ -50,7 +50,13 @@ newtype App f a = App {unApp :: (ReaderT (Env f) IO) a}
         , MonadCatch
         )
 
-deriving via (FrontEndIO Console IO) instance FrontEndIO Console (App Console) 
+instance FrontEndIO Console (App Console) where
+    
+    getUpdates = pure <$> liftIO T.getLine
+
+    sendResponse = liftIO . T.putStrLn . ("λ:" <>)
+
+    sendWebResponse _ = pure ()
 
 instance Ord (BotUser f) => HasEnv f (App f) where
     getRepeats user  = asks envRepeats >>= (liftIO . readIORef) <&> M.lookup user

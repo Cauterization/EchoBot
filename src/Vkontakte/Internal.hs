@@ -64,13 +64,14 @@ data GoodResponse = GoodResponse { goodTs :: !Text, updates :: [Update]}
     deriving (FromJSON) via 
         CustomJSON '[FieldLabelModifier '[StripPrefix "good", CamelToSnake]] GoodResponse
 
-data Update = EchoUpdate    !T.Text (ID User) [Attachment]
-            | HelpUpdate    !(ID User)
-            | RepeatUpdate  !(ID User)
-            | UpdateRepeats !(ID User)  !Repeat
-            | Trash         !T.Text
-            deriving (Show, Generic)
-            deriving Arbitrary via GenericArbitrary Update
+data Update 
+    = EchoUpdate    !T.Text (ID User) [Attachment]
+    | HelpUpdate    !(ID User)
+    | RepeatUpdate  !(ID User)
+    | UpdateRepeats !(ID User)  !Repeat
+    | Trash         !T.Text
+    deriving (Show, Generic)
+    deriving Arbitrary via GenericArbitrary Update
 
 instance FromJSON Update where
     parseJSON  = withObject "Update" $ \v -> do

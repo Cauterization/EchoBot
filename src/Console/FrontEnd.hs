@@ -40,6 +40,8 @@ instance IsFrontEnd Console where
 
     getActions = chooseAction
 
+    prepareRequest = pure
+
 consoleAwaitsNewNumberOfRepeatitions :: (HasEnv Console m, Functor m) => m Bool
 consoleAwaitsNewNumberOfRepeatitions = getFrontData <&> unAwaits
 
@@ -65,12 +67,3 @@ getNewReps :: (Monad m, HasEnv Console m, MonadThrow m)
 getNewReps update = flipMode 
     >> parse (fromString $ T.unpack update) 
     <&> (pure . UpdateRepeats NotRequired)
-
-
-instance FrontEndIO Console IO where
-    
-    getUpdates = pure <$> liftIO T.getLine
-
-    sendResponse = liftIO . T.putStrLn . ("λ:" <>)
-
-    sendWebResponse _ = pure ()
