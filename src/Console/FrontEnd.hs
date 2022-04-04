@@ -8,6 +8,7 @@ import Control.Monad.IO.Class
 
 import Data.Aeson
 import Data.Functor
+import Data.Monoid
 import Data.String
 
 import Extended.Text (Text)
@@ -19,10 +20,10 @@ import Bot.Error
 import Bot.FrontEnd
 import Bot.IO
 
-
-
-
 data Console = Console deriving (Generic, FromJSON, Show)
+
+newtype ConsoleAwaits = ConsoleAwaits {unAwaits :: Bool}
+    deriving (Semigroup, Monoid) via Any
 
 instance IsFrontEnd Console where
 
@@ -33,21 +34,22 @@ instance IsFrontEnd Console where
     type Update    Console = Text
 
     -- | Is bot awaits number of repeatitions?
-    type FrontData Console = Bool
+    type FrontData Console = ConsoleAwaits
 
-    newFrontData _ = pure False
+    newFrontData _ = pure mempty
 
     getActions = chooseAction
 
-consoleAwaitsNewNumberOfRepeatitions :: HasEnv Console m => m (FrontData Console)
-consoleAwaitsNewNumberOfRepeatitions = getFrontData
+consoleAwaitsNewNumberOfRepeatitions :: (HasEnv Console m, Functor m) => m Bool
+consoleAwaitsNewNumberOfRepeatitions = getFrontData <&> unAwaits
 
 flipMode :: (HasEnv Console m, Monad m) => m ()
-flipMode = getFrontData >>= setFrontData . not
+flipMode = getFrontData >>= setFrontData . ConsoleAwaits . not . unAwaits
 
 chooseAction :: (Monad m, HasEnv Console m, MonadThrow m) 
     => Update Console -> m [Action Console]
-chooseAction u = ifM consoleAwaitsNewNumberOfRepeatitions (getNewReps u) (getAction u)
+chooseAction u = ifM consoleAwaitsNewNumberOfRepeatitions 
+    (getNewReps u) (getAction u)
 
 getAction :: (Monad m, HasEnv Console m, MonadThrow m) 
     => Update Console -> m [Action Console]
@@ -63,6 +65,7 @@ getNewReps :: (Monad m, HasEnv Console m, MonadThrow m)
 getNewReps update = flipMode 
     >> parse (fromString $ T.unpack update) 
     <&> (pure . UpdateRepeats NotRequired)
+
 
 instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
     

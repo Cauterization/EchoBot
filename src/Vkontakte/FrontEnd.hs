@@ -42,6 +42,8 @@ instance IsFrontEnd Vkontakte where
     newFrontData = newFrontData
 
     getActions = getActions
+    
+    prepareRequest = prepareRequest 
 
 instance ( Monad m
          , MonadThrow m
@@ -108,38 +110,41 @@ checkCallback = parse >=> \case
 
 getActions :: (Monad m, Bot.HasEnv Vkontakte m, Logger.HasLogger m, MonadThrow m) 
     => Update -> m [Action Vkontakte]
-getActions = \case
+getActions u = case u of
 
     RepeatUpdate userID 
         -> pure . Bot.SendRepeatMessage userID 
-            <$> prepareRequest "/repeat" userID keyboard
+            <$> prepareRequest u
                            
     HelpUpdate userID   
         -> pure . Bot.SendHelpMessage userID 
-            <$> prepareRequest "/help" userID ""
+            <$> prepareRequest u
 
     EchoUpdate text userID []
         -> pure . Bot.SendRepeatEcho userID text
-            <$> prepareRequest text userID ""
+            <$> prepareRequest u
                            
     EchoUpdate text userID as
         -> pure . Bot.SendEcho userID text 
-            <$> prepareRequest text userID (prepareAttachment as)
+            <$> prepareRequest u
                                               
     UpdateRepeats userID rep -> sequence 
         [ pure $ Bot.UpdateRepeats userID rep
         , Bot.HideKeyboard userID 
-            <$> prepareRequest "repeats_updated" userID hideKeyboard
+            <$> prepareRequest u
         ]
         
     Trash t -> [] <$
         Logger.debug ("That update doesn't look like something meaningful: " <> t)
 
 prepareRequest :: (Monad m, Bot.HasEnv Vkontakte m) 
-    => Text -> ID User -> Text -> m URL
-prepareRequest m userID attachment = do
+    => Update -> m URL
+prepareRequest update = do
+    let text = updateText update
+        userID = updateUser update
+        attachment = updateAttachment update
     token <-  ("&access_token=" <>) . unToken <$> Bot.getToken 
-    message <- let str =  ("&message=" <>) in case m of
+    message <- let str =  ("&message=" <>) in case text of
         ""        -> pure ""
         "/help"   -> str . HTTP.stringEncode <$> Bot.getHelpMessage
         "/repeat" -> str . HTTP.stringEncode <$> Bot.getRepeatMessage
@@ -152,6 +157,50 @@ prepareRequest m userID attachment = do
         , "&v=5.81"
         , attachment
         ]
+
+updateText :: Update -> Text
+updateText = \case
+    RepeatUpdate _ -> "/repeat"
+    HelpUpdate _   -> "/help"
+    EchoUpdate text _ _ -> text
+    UpdateRepeats _ _ -> "repeats_updated"
+    _ -> ""
+
+updateUser :: Update -> ID User
+updateUser = \case
+    RepeatUpdate userID -> userID
+    HelpUpdate userID   -> userID
+    EchoUpdate _ userID [] -> userID
+    EchoUpdate _ userID as -> userID
+    UpdateRepeats userID _ -> userID
+    _ -> 0
+
+updateAttachment :: Update -> Text
+updateAttachment = \case
+    RepeatUpdate userID -> keyboard
+    HelpUpdate userID   -> ""
+    EchoUpdate _ userID [] -> ""
+    EchoUpdate _ userID as -> prepareAttachment as
+    UpdateRepeats userID _ -> hideKeyboard
+    _ -> ""
+
+-- prepareRequest :: (Monad m, Bot.HasEnv Vkontakte m) 
+--     => Text -> ID User -> Text -> m URL
+-- prepareRequest m userID attachment = do
+--     token <-  ("&access_token=" <>) . unToken <$> Bot.getToken 
+--     message <- let str =  ("&message=" <>) in case m of
+--         ""        -> pure ""
+--         "/help"   -> str . HTTP.stringEncode <$> Bot.getHelpMessage
+--         "/repeat" -> str . HTTP.stringEncode <$> Bot.getRepeatMessage
+--         text      -> pure $ str text
+--     pure $ mconcat 
+--         [ "https://api.vk.com/method/messages.send"
+--         , "?user_id=" .< userID
+--         , message
+--         , token
+--         , "&v=5.81"
+--         , attachment
+--         ]
 
 prepareAttachment :: [Attachment] -> Text
 prepareAttachment = \case

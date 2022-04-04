@@ -14,7 +14,7 @@ data BotError
     = ParsingError Text
     | BadCallbackError Text
     | ImpossibleHappened Text
-    deriving (Show, Exception)
+    deriving (Show, Exception, Eq)
 
 parse :: (FromJSON x, MonadThrow m) => BSL.ByteString -> m x
 parse = either (throwM . ParsingError . T.pack) pure . eitherDecode 

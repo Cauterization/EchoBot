@@ -37,7 +37,7 @@ type IsBot f m = ( Monad m
     , HasEnv f m
     ) 
 
-instance {-# OVERLAPPING #-}
+instance {-# OVERLAPS #-}
     ( IsBot f m
     , HTTP.MonadHttp m
     , IsWebFrontEnd m f

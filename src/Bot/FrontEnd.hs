@@ -47,7 +47,7 @@ instance (Typeable f) => FromJSON (FrontName f) where
         guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
         pure $ FrontName t
 
-class (Ord (BotUser f), Show (BotUser f)) => IsFrontEnd f where 
+class (Show (BotUser f), Monoid (FrontData f)) => IsFrontEnd f where 
 
     -- | Set NotRequired for no-web front-end or a otherwise
     type family WebOnly f a :: Type
@@ -70,6 +70,8 @@ class (Ord (BotUser f), Show (BotUser f)) => IsFrontEnd f where
     -- | Function to parse each update 
     getActions :: (Monad m, HasEnv f m, Logger.HasLogger m, HasEnv f m, MonadThrow m) 
         => Update f -> m [Action f]
+
+    prepareRequest :: (Monad m, HasEnv f m) => Update f -> m URL
 
 -- | Bot environment seters and geters
 class HasEnv f m | m -> f where
@@ -99,6 +101,9 @@ data Action f
     | SendRepeatMessage (BotUser f) URL
     | UpdateRepeats     (BotUser f) Repeat
     | HideKeyboard      (BotUser f) (WebOnly f URL)
+
+deriving instance (Show (BotUser f), Show (WebOnly f URL)) => Show (Action f)
+deriving instance (Eq (BotUser f), Eq (WebOnly f URL)) => Eq (Action f)
 
 -- | Class for web front-end only
 class ( WebOnly f (Token f) ~ Token f
