@@ -19,6 +19,8 @@ import Bot.Error
 import qualified Logger.Handle as Logger
 import Bot.FrontEnd
 
+-- | Class for bot input and output
+-- not that it have one coomon instance for all messangers and another for console
 class FrontEndIO f (m :: Type -> Type) where
 
     getUpdates :: m [Update f]

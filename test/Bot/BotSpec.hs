@@ -15,6 +15,7 @@ import Control.Monad.Catch
       MonadThrow(..) )
 import Control.Monad.Except
     ( join, when, ExceptT(..), runExceptT, MonadError(throwError) )
+import Control.Monad.Extra (whenM)
 import Control.Monad.State
 import Control.Monad.Writer 
 
@@ -51,10 +52,7 @@ import Bot.Types
 import Data.Either
 import Data.Aeson
 import Data.String
-
-import System.IO.Unsafe
-import Data.List
-import Control.Monad.Extra (whenM)
+import Data.Maybe
 
 spec :: Spec
 spec = do
@@ -71,6 +69,10 @@ specFront = describe (frontName @f <> " common tests:") $ do
     it "should echo any non-command input back" 
         $ property $ propSendsEchoBack @f
 
+    it "actually sends echo several times according to number of repeatitions" $
+        quickCheckWith stdArgs{maxDiscardRatio = 2000} 
+            $ property $ propSendsEchoSeveralTimes @f
+
 propSendsEchoBack :: forall f. TestFront f => Update f -> Property
 propSendsEchoBack update = 
     isRepeatEchoUpdate @f update || isEchoUpdate @f update ==> do
@@ -83,10 +85,18 @@ propSendsEchoBack update =
                 Right url 
                     -> res `shouldBe` Right [SendRepeatEcho userID text url]
 
-         
             EchoUpdateT text userID -> case eitherURL of
                 Right url 
                     -> res `shouldBe` Right [SendEcho userID text url]
+
+propSendsEchoSeveralTimes :: forall f. TestFront f => Update f -> Property
+propSendsEchoSeveralTimes update = 
+    isRepeatEchoUpdate @f update ==> do
+        s <- execTBot @f (withUpdate update) $
+            recieveActions @f @(TestBot f) >>= mapM_ executeAction
+        length (bSenededResponse s) `shouldBe` 
+            unRepeat (fromMaybe (bDefaultRepeats s) 
+                (M.lookup (getUserFromEchoUpdate @f update) $ bRepeats s))
 
 specWeb :: forall f. (TestFront f, FrontEndIO f (TestBot f)) => Spec
 specWeb = describe (frontName @f <> " web tests:") $ do
@@ -102,7 +112,7 @@ specWeb = describe (frontName @f <> " web tests:") $ do
             HTTP.stringEncode text /= text ==> propWebSendsCommands @f text
 
     it "only last taken repeatition uis taken into account"
-        $ property $ withMaxSuccess 40 $ propWebSetsLastsRepeatition @f
+        $ property $ propWebSetsLastsRepeatition @f
 
 propWebUpdatesCounter :: forall f. TestFront f => Update f -> Property
 propWebUpdatesCounter update = 
@@ -126,7 +136,7 @@ propWebSendsCommands commandText update =
             RepeatUpdateT user -> HTTP.stringEncode rm `T.isInfixOf` url `shouldBe` True
 
 propWebSetsLastsRepeatition :: forall f. TestFront f => [Update f] -> Property
-propWebSetsLastsRepeatition updates = 
+propWebSetsLastsRepeatition updates = withMaxSuccess 40 $ 
     any (isUpdateRepeatsUpdate @f) updates ==> do
         let us = map (toTestUpdate @f) $ filter (isUpdateRepeatsUpdate @f) updates
         finalState <- execTBot @f (withUpdates updates) $
@@ -155,12 +165,12 @@ specConsole = describe "Console specific tests:" $ do
 
     it "should send corresponding messages according to recieved commands" $ do
 
-        property $ forAll (elements ["/help", "/repeat"]) propConsoleSendsCommands
+        property $ forAll (elements ["/help", "/repeat"]) propConsoleExecutesCommands
 
 propConsoleUpdatesCounter :: ConsoleAwaits -> Int -> Property
 propConsoleUpdatesCounter awaits repeat = repeat < 5 && repeat > 0 ==> do
     res <- execTBot (
-        withUpdates [T.show  repeat] . 
+        withUpdate (T.show repeat) . 
         withFrontData awaits) $
             recieveActions @Console 
             >>= mapM_ executeAction
@@ -180,13 +190,12 @@ propConsoleUpdatesIncorrectCounter input =
                 >>= mapM_ executeAction 
         res `shouldBe` Left (ParsingError $ T.pack $ fromLeft "" err)
 
-propConsoleSendsCommands :: Text -> Property
-propConsoleSendsCommands input = 
+propConsoleExecutesCommands :: Text -> Property
+propConsoleExecutesCommands input = 
     input == "/help" || input == "/repeat" ==> do
-        Right hm  <- evalTBot @Console id getHelpMessage 
-        Right rm  <- evalTBot @Console id getRepeatMessage
-        Right [a] <- evalTBot @Console (withUpdate input) 
-            recieveActions 
+        Right (hm, rm, [a])  <- 
+            evalTBot @Console (withUpdate input)  
+            $ liftM3 (,,) getHelpMessage getRepeatMessage recieveActions
         a `shouldBe`  case input of
                 "/help"   -> SendHelpMessage   NotRequired hm
                 "/repeat" -> SendRepeatMessage NotRequired rm
@@ -237,7 +246,7 @@ testToken = "TestToken"
 
 data BotState f = BotState
     { bUpdates :: [Update f]
-    , bSenededResponse :: [Action f]
+    , bSenededResponse :: [URL]
     , bRepeats :: M.Map (BotUser f) Repeat
     , bDefaultRepeats :: Repeat
     , bFrontData :: FrontData f
@@ -287,13 +296,14 @@ instance Logger.HasLogger (TestBot f) where
               $ when (v >= Logger.Warning) 
               $ tell [(v, t)]
 
-instance FrontEndIO f (TestBot f) where
+instance TestFront f => FrontEndIO f (TestBot f) where
 
     getUpdates = gets bUpdates
 
-    sendResponse _ = pure ()
+    sendResponse resp = modify (\BotState{..} -> 
+        BotState{bSenededResponse = resp : bSenededResponse, ..})
 
-    sendWebResponse _ = pure ()
+    sendWebResponse = onWebM @f (sendResponse @f) 
 
 instance TestFront f => HasEnv f (TestBot f) where
 
@@ -309,9 +319,9 @@ instance TestFront f => HasEnv f (TestBot f) where
     setFrontData fd = modify $
         \BotState{..} -> BotState {bFrontData = fd <> bFrontData, ..}
 
-    getToken = pure $ onWeb @f $ Token @f "BotToken"
+    getToken = pure $ toWeb @f $ Token @f "BotToken"
 
-    getPollingTime = pure $ onWeb @f (45 :: Int)
+    getPollingTime = pure $ toWeb @f (45 :: Int)
 
     getHelpMessage = pure "HelpMessage"
 
@@ -324,13 +334,17 @@ class ( Arbitrary (Update f), Show (Update f)
       , Monoid (WebOnly f URL)
       ) => TestFront f where
 
-    onWeb :: a -> WebOnly f a
+    toWeb :: a -> WebOnly f a
+
+    onWebM :: Applicative m => (a -> m ()) -> WebOnly f a -> m ()
 
     toTestUpdate :: Update f -> TestUpdate f
 
 instance TestFront Vkontakte where
 
-    onWeb = id
+    toWeb = id
+
+    onWebM = ($)
 
     toTestUpdate = \case
 
@@ -353,7 +367,9 @@ instance TestFront Vkontakte where
 
 instance TestFront Telegram where
 
-    onWeb = id
+    toWeb = id
+
+    onWebM = ($)
 
     toTestUpdate = \case
 
@@ -377,7 +393,9 @@ instance TestFront Telegram where
 
 instance TestFront Console where
 
-    onWeb _ = NotRequired
+    toWeb _ = NotRequired
+
+    onWebM _  _ = pure ()
 
     toTestUpdate t
         | "/help"   `T.isPrefixOf` t  = HelpUpdateT   NotRequired
@@ -417,3 +435,7 @@ isRepeatUpdate u = case toTestUpdate @f u of
 isUpdateRepeatsUpdate u = case toTestUpdate @f u of
     UpdateRepeatsT{} -> True
     _ -> False
+
+getUserFromEchoUpdate :: forall f. TestFront f => Update f -> BotUser f
+getUserFromEchoUpdate u = case toTestUpdate @f u of
+    EchoRepeatUpdateT _ u -> u
