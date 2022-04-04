@@ -17,13 +17,8 @@ import Test.QuickCheck.Arbitrary.Generic
 newtype ID e = ID { idVal :: Int }
   deriving newtype (Show, Eq, Ord, Read, Enum, Num, FromJSON, Arbitrary)
 
-
--- deriving via GenericArbitrary (ID e) instance 
---     (Generic (ID e), ) 
---     => Arbitrary (ID e) 
-
 newtype Repeat = Repeat {unRepeat :: Int} 
-    deriving (Generic, Show, Eq)
+    deriving (Generic, Show, Eq, Ord)
     deriving newtype (Arbitrary, Num, Read)
 
 

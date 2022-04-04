@@ -50,7 +50,7 @@ instance (Typeable f) => FromJSON (FrontName f) where
         guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
         pure $ FrontName t
 
-class (Show (BotUser f), Monoid (FrontData f)) => IsFrontEnd f where 
+class (Show (BotUser f), Monoid (FrontData f), Typeable f) => IsFrontEnd f where 
 
     -- | Set NotRequired for no-web front-end or a otherwise
     type family WebOnly f a :: Type

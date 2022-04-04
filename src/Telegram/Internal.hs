@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Telegram.Internal where
@@ -14,6 +13,9 @@ import Data.Semigroup (Max(..))
 import Bot.Types
 import Data.Foldable
 
+import Test.QuickCheck (Arbitrary)
+import Test.QuickCheck.Arbitrary.Generic
+
 type ErrorCode = Int
 
 type Description = Text
@@ -25,23 +27,6 @@ newtype Offset = Offset Int
 newtype GoodResponse = GoodResponse {result :: [Update]} 
         deriving (Show, Generic, Eq)
         deriving anyclass FromJSON
-        
-
-
-        -- UpdateRepeats _ CallbackQ
-        --     { _from = User userID
-        --     , message = Message{ message_id = ID messageID , chat = Chat chatID }
-        --     , _data = repText }
-        --     -> do
-        --     rep <- parse $ fromString $ T.unpack repText
-        --     req <- prepareRequest 
-        --             chatID  
-        --             "/editMessageReplyMarkup" 
-        --             ("&message_id=" .< messageID)
-        --     pure [ Front.UpdateRepeats (BotUser userID chatID) rep
-        --          , Front.HideKeyboard (BotUser userID chatID) req
-        --          ]
-
 
 data Update 
     = EchoUpdate    !(ID Update) !(ID User) !(ID Chat) !(ID Message) !(Maybe Text)
@@ -50,6 +35,7 @@ data Update
     | UpdateRepeats !(ID Update) !(ID User) !(ID Chat) !(ID Message) !Repeat
     | Trash         !(ID Update) !Object
     deriving (Show, Generic, Eq)
+    deriving Arbitrary via GenericArbitrary Update
 
 instance FromJSON Update where
     parseJSON = withObject "Update" $ \v -> do

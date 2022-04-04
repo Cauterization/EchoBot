@@ -184,24 +184,6 @@ updateAttachment = \case
     UpdateRepeats userID _ -> hideKeyboard
     _ -> ""
 
--- prepareRequest :: (Monad m, Bot.HasEnv Vkontakte m) 
---     => Text -> ID User -> Text -> m URL
--- prepareRequest m userID attachment = do
---     token <-  ("&access_token=" <>) . unToken <$> Bot.getToken 
---     message <- let str =  ("&message=" <>) in case m of
---         ""        -> pure ""
---         "/help"   -> str . HTTP.stringEncode <$> Bot.getHelpMessage
---         "/repeat" -> str . HTTP.stringEncode <$> Bot.getRepeatMessage
---         text      -> pure $ str text
---     pure $ mconcat 
---         [ "https://api.vk.com/method/messages.send"
---         , "?user_id=" .< userID
---         , message
---         , token
---         , "&v=5.81"
---         , attachment
---         ]
-
 prepareAttachment :: [Attachment] -> Text
 prepareAttachment = \case
     [Attachment "sticker" sID _ _] -> "&sticker_id=" .< sID
