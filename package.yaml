@@ -53,14 +53,17 @@ default-extensions:
 - DeriveGeneric
 - DerivingStrategies
 - DerivingVia
+- EmptyDataDeriving
 - ExistentialQuantification
 - FlexibleContexts
 - FlexibleInstances
+- FunctionalDependencies
 - ImplicitParams
 - ImportQualifiedPost
 - LambdaCase
 - MultiParamTypeClasses
 - OverloadedStrings
+- PatternSynonyms
 - RankNTypes
 - RecordWildCards
 - ScopedTypeVariables
@@ -68,6 +71,8 @@ default-extensions:
 - TypeApplications
 - TypeFamilies
 - UndecidableInstances
+- UndecidableSuperClasses
+- ViewPatterns
 
 library:
   source-dirs: src
@@ -82,7 +87,6 @@ executables:
     - -with-rtsopts=-N
     - -Wall
     - -Werror
-    - -Wincomplete-uni-patterns
     dependencies:
     - bot
 
