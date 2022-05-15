@@ -56,14 +56,17 @@ library
       DeriveGeneric
       DerivingStrategies
       DerivingVia
+      EmptyDataDeriving
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
+      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
@@ -71,6 +74,8 @@ library
       TypeApplications
       TypeFamilies
       UndecidableInstances
+      UndecidableSuperClasses
+      ViewPatterns
   build-depends:
       QuickCheck
     , aeson
@@ -111,14 +116,17 @@ executable bot-exe
       DeriveGeneric
       DerivingStrategies
       DerivingVia
+      EmptyDataDeriving
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
+      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
@@ -126,7 +134,9 @@ executable bot-exe
       TypeApplications
       TypeFamilies
       UndecidableInstances
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror -Wincomplete-uni-patterns
+      UndecidableSuperClasses
+      ViewPatterns
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
   build-depends:
       QuickCheck
     , aeson
@@ -170,14 +180,17 @@ test-suite bot-test
       DeriveGeneric
       DerivingStrategies
       DerivingVia
+      EmptyDataDeriving
       ExistentialQuantification
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       ImplicitParams
       ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
+      PatternSynonyms
       RankNTypes
       RecordWildCards
       ScopedTypeVariables
@@ -185,6 +198,8 @@ test-suite bot-test
       TypeApplications
       TypeFamilies
       UndecidableInstances
+      UndecidableSuperClasses
+      ViewPatterns
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck

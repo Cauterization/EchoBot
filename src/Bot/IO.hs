@@ -15,7 +15,7 @@ import Extended.Text (Text)
 import Logger.Handle qualified as Logger
 
 -- | Class for bot input and output
--- note that it have one coomon instance for all messangers and another for console
+-- note that it have one common instance for all messangers and another for console
 class FrontEndIO f (m :: Type -> Type) where
   getUpdates :: m [Update f]
 

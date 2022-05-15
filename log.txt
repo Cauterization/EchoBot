@@ -1,0 +1,59 @@
+
+
+Thu May 12 08:41:12 2022 Info
+Getting updates..
+
+Thu May 12 08:41:28 2022 Debug
+Recieved response: GoodResponse {result = [EchoUpdate 696054016 1195427641 1195427641 2117 (Just "asd")]}
+
+Thu May 12 08:41:28 2022 Info
+Recieved 1 new updates.
+
+Thu May 12 08:41:28 2022 Info
+Sending echo:
+asd
+to: BotUser 1195427641 1195427641 5 times
+
+Thu May 12 08:41:29 2022 Info
+Getting updates..
+
+Thu May 12 08:41:34 2022 Debug
+Recieved response: GoodResponse {result = [RepeatUpdate 696054017 1195427641 1195427641]}
+
+Thu May 12 08:41:34 2022 Info
+Recieved 1 new updates.
+
+Thu May 12 08:41:34 2022 Info
+Sending repeat_message to BotUser 1195427641 1195427641
+
+Thu May 12 08:41:35 2022 Info
+Getting updates..
+
+Thu May 12 08:41:36 2022 Debug
+Recieved response: GoodResponse {result = [UpdateRepeats 696054018 1195427641 1195427641 2124 3]}
+
+Thu May 12 08:41:36 2022 Info
+Recieved 1 new updates.
+
+Thu May 12 08:41:36 2022 Info
+New number of repeations for user BotUser 1195427641 1195427641 is 3
+
+Thu May 12 08:41:36 2022 Info
+Hiding keyboard from BotUser 1195427641 1195427641
+
+Thu May 12 08:41:36 2022 Info
+Getting updates..
+
+Thu May 12 08:41:38 2022 Debug
+Recieved response: GoodResponse {result = [EchoUpdate 696054019 1195427641 1195427641 2125 (Just "a")]}
+
+Thu May 12 08:41:38 2022 Info
+Recieved 1 new updates.
+
+Thu May 12 08:41:38 2022 Info
+Sending echo:
+a
+to: BotUser 1195427641 1195427641 3 times
+
+Thu May 12 08:41:38 2022 Info
+Getting updates..
