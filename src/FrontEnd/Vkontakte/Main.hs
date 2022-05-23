@@ -59,6 +59,8 @@ instance Bot.IsFrontEnd Vkontakte where
 instance Bot.IsWebFrontEnd Vkontakte where
   getToken = envToken <$> Bot.getFrontEnv
 
+  getPollingTime = envPollingTime <$> Bot.getFrontEnv
+
   getUpdatesURL = getUpdatesURL
 
   type Response Vkontakte = GoodResponse
@@ -230,10 +232,16 @@ handleBadResponse BadResponse {..} = case failed of
       badTs
   2 -> do
     Logger.warning "Key is out of date. Getting new key..."
-    resp <- getReponseWithFrontData =<< Bot.getToken
+    t <- Bot.getToken
+    groupID <- envGroupID <$> Bot.getFrontEnv
+    pollingTime <- Bot.getPollingTime
+    resp <- getReponseWithFrontData t groupID pollingTime
     Bot.setFrontEnv (envKey .~ key resp)
   3 -> do
     Logger.warning "FrontEnd data is lost, requesting new one..."
-    resp <- getReponseWithFrontData =<< Bot.getToken
+    t <- Bot.getToken
+    groupID <- envGroupID <$> Bot.getFrontEnv
+    pollingTime <- Bot.getPollingTime
+    resp <- getReponseWithFrontData t groupID pollingTime
     Bot.setFrontEnv ((envKey .~ key resp) . (envTs .~ ts resp) . (envServer .~ server resp))
   _ -> Logger.error "Unknown error code. IDK what to do with this."

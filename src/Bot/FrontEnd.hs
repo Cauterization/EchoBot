@@ -3,7 +3,7 @@
 module Bot.FrontEnd where
 
 import App.Config (Config)
-import Bot.Types (Repeat (unRepeat), URL)
+import Bot.Types (Repeat (unRepeat))
 import Control.Monad.Catch (MonadThrow)
 import Data.Kind (Constraint, Type)
 import Data.List qualified as L
@@ -65,10 +65,10 @@ getRepeatsFor u = getRepeats @f u >>= fmap unRepeat . maybe (defaultRepeats @f) 
 
 -- | Bot actions
 data Action f
-  = SendEcho (BotUser f) URL Text
-  | SendRepeatEcho (BotUser f) URL Text
-  | SendHelpMessage (BotUser f) URL
-  | SendRepeatMessage (BotUser f) URL
+  = SendEcho (BotUser f) Text Text
+  | SendRepeatEcho (BotUser f) Text Text
+  | SendHelpMessage (BotUser f) Text
+  | SendRepeatMessage (BotUser f) Text
   | UpdateRepeats (BotUser f) Repeat
-  | HideKeyboard (BotUser f) URL
+  | HideKeyboard (BotUser f) Text
 

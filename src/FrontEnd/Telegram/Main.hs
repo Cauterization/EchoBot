@@ -44,6 +44,8 @@ instance Bot.IsFrontEnd Telegram where
 instance Bot.IsWebFrontEnd Telegram where
   getToken = envToken <$> Bot.getFrontEnv
 
+  getPollingTime = envPollingTime <$> Bot.getFrontEnv
+
   getUpdatesURL = getUpdatesURL
 
   type Response Telegram = GoodResponse

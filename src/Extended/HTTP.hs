@@ -18,9 +18,10 @@ import Extended.Text (Text)
 import Extended.Text qualified as T
 import Logger ((.<))
 import Logger qualified
-import Network.HTTP.Client.Conduit (HttpException (..), HttpExceptionContent (..))
+import Network.HTTP.Client.Conduit (HttpException (..), HttpExceptionContent (..), ResponseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Network.HTTP.Types.URI (urlEncode)
+import Bot.Types (PollingTime)
 
 type Url = String
 
@@ -31,12 +32,15 @@ percentEncode :: ToJSON a => a -> T.Text
 percentEncode = T.pack . BS8.unpack . urlEncode True . BSL.toStrict . encode
 
 class MonadHttp m where
-  tryRequest :: Text -> m BSL.ByteString
+  tryRequest :: PollingTime -> Text -> m BSL.ByteString
 
 instance (MonadIO m, Logger.HasLogger m) => MonadHttp m where
-  tryRequest (T.unpack -> initReq) = do
+  tryRequest polling (T.unpack -> initReq) = do
     req <- liftIO $ parseRequest initReq
     Logger.debug $ "Outcomming request:\n" .< req
-    response <- httpBS req <&> BSL.fromStrict . getResponseBody
+    let timeout = responseTimeoutMicro $ 1000000 * (polling + 5)
+    response <- httpBS (setRequestResponseTimeout timeout req) 
+      <&> BSL.fromStrict . getResponseBody
     Logger.debug $ "Recieved raw response:\n" .< response
     pure response
+

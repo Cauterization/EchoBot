@@ -1,7 +1,7 @@
 module Bot.Web where
 
 import Bot.FrontEnd (HasEnv, IsFrontEnd (Update))
-import Bot.Types (Token, URL)
+import Bot.Types (Token, URL, PollingTime)
 import Control.Monad.Catch (MonadThrow)
 import Data.Aeson (FromJSON)
 import Data.ByteString.Lazy qualified as BSL
@@ -18,6 +18,8 @@ class
   IsWebFrontEnd f
   where
   getToken :: (Monad m, HasEnv f m) => m Token
+
+  getPollingTime :: (Monad m, HasEnv f m) => m PollingTime
 
   getUpdatesURL :: (Monad m, HasEnv f m) => m URL
 
