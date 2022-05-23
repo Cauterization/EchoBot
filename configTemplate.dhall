@@ -22,8 +22,8 @@ in
   , cFilePath  = "log.txt"
   }
 , cDefaultRepeats = +5
-, cHelpMessage    = "_"
-, cRepeatMessage  = "_"
+, cHelpMessage    = "This is a simple bot that sends your messages back. The following commands are also available to you:\n/help - see this message;\n/repeat - enter a new number of repetitions"
+, cRepeatMessage  = "Enter a new number of repetitions."
 , cFrontEnd = FrontEnd.Telegram
 , cPollingTime = Some +45
 , cVKConfig = Some

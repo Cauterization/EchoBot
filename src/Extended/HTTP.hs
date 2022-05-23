@@ -38,5 +38,5 @@ instance (MonadIO m, Logger.HasLogger m) => MonadHttp m where
     req <- liftIO $ parseRequest initReq
     Logger.debug $ "Outcomming request:\n" .< req
     response <- httpBS req <&> BSL.fromStrict . getResponseBody
-    Logger.debug $ "Recieved response:\n" .< response
+    Logger.debug $ "Recieved raw response:\n" .< response
     pure response

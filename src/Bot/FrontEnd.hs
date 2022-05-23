@@ -42,13 +42,6 @@ class (Show (BotUser f), Ord (BotUser f), Show (BotFrontEnv f), Typeable f) => I
 
   mkFrontEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) => Config -> m (BotFrontEnv f)
 
-  --   mkEnv :: (Monad m, MonadThrow m) BotConfig f ->
-
-  --   newFrontData ::
-  --     (Monad m, MonadThrow m, HTTP.MonadHttp m) =>
-  --     WebOnly f (Token f) ->
-  --     m (FrontData f)
-
   -- | Updates that make up the front-end response
   type Update f :: Type
 
@@ -56,14 +49,6 @@ class (Show (BotUser f), Ord (BotUser f), Show (BotFrontEnv f), Typeable f) => I
     (Monad m, Logger.HasLogger m, MonadThrow m, HasEnv f m) =>
     Update f ->
     m [Action f]
-
---   -- | Function to parse each update
---   getActions ::
---     (Monad m, HasEnv f m, Logger.HasLogger m, HasEnv f m, MonadThrow m) =>
---     Update f ->
---     m [Action f]
-
---   prepareRequest :: (Monad m, HasEnv f m) => Update f -> m URL
 
 -- | Bot environment seters and geters
 class HasEnv f m | m -> f where
@@ -78,14 +63,6 @@ class HasEnv f m | m -> f where
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => BotUser f -> m Int
 getRepeatsFor u = getRepeats @f u >>= fmap unRepeat . maybe (defaultRepeats @f) pure
 
--- -- | Wee need that thing because of vkontakte's partial frontEnd data update
--- updateFrontData ::
---   forall f m.
---   (HasEnv f m, Monad m, Semigroup (FrontData f)) =>
---   FrontData f ->
---   m ()
--- updateFrontData fd = getFrontData @f >>= setFrontData @f . (fd <>)
-
 -- | Bot actions
 data Action f
   = SendEcho (BotUser f) URL Text
@@ -95,34 +72,3 @@ data Action f
   | UpdateRepeats (BotUser f) Repeat
   | HideKeyboard (BotUser f) URL
 
--- deriving instance (Show (BotUser f), Show (WebOnly f URL)) => Show (Action f)
-
--- deriving instance (Eq (BotUser f), Eq (WebOnly f URL)) => Eq (Action f)
-
--- -- | Class for web front-end only
--- class
---   ( WebOnly f (Token f) ~ Token f,
---     WebOnly f (FrontData f) ~ FrontData f,
---     Semigroup (FrontData f),
---     WebOnly f PollingTime ~ PollingTime,
---     WebOnly f Text ~ Text,
---     HasEnv f m
---   ) =>
---   IsWebFrontEnd m f
---   where
---   -- | A front-end response consisting of updates and front-end data
---   type Response f :: Type
-
---   extractFrontData :: Response f -> FrontData f
-
---   extractUpdates :: Response f -> [Update f]
-
---   -- | URL for geting updates
---   getUpdatesURL :: Token f -> FrontData f -> PollingTime -> URL
-
---   -- | A response received during errors
---   type BadResponse f :: Type
-
---   handleBadResponse :: BadResponse f -> m ()
-
---   checkCallback :: BL.ByteString -> m () -}
