@@ -1,40 +1,35 @@
 module App.Config where
 
-import Bot.FrontEnd (FrontName, IsFrontEnd (WebOnly), Token)
 import Bot.Types (PollingTime, Repeat)
-import Data.Aeson (FromJSON, eitherDecode)
-import Data.ByteString.Lazy qualified as BL
-import Data.Data (Typeable)
-import Data.Text (Text)
-import Deriving.Aeson (CustomJSON (..), FieldLabelModifier, StripPrefix)
-import GHC.Generics (Generic)
-import Logger.Handle qualified as Logger
+import Control.Monad.Catch (Exception, MonadThrow (..))
+import Dhall (FromDhall, Generic, Text, auto, input)
+import Extended.Text qualified as T
+import FrontEnd.Telegram.Config qualified as TG
+import FrontEnd.Vkontakte.Config qualified as VK
+import Logger qualified
 
-data Config f = Config
+data ConfigFront = Vkontakte | Telegram | Console
+  deriving (Show, Generic, FromDhall)
+
+data Config = Config
   { cLogger :: !Logger.Config,
     cDefaultRepeats :: !Repeat,
     cHelpMessage :: !Text,
     cRepeatMessage :: !Text,
-    cFrontEnd :: !(FrontName f),
-    cToken :: !(WebOnly f (Token f)),
-    cPollingTime :: !(WebOnly f PollingTime)
+    cFrontEnd :: !ConfigFront,
+    cPollingTime :: !(Maybe PollingTime),
+    cVKConfig :: !(Maybe VK.VKConfig),
+    cTGConfig :: !(Maybe TG.TGConfig)
   }
-  deriving stock (Generic)
+  deriving (Show, Generic, FromDhall)
 
-deriving via
-  (CustomJSON '[FieldLabelModifier (StripPrefix "c")] (Config f))
-  instance
-    ( Typeable f,
-      FromJSON f,
-      FromJSON (WebOnly f (Token f)),
-      FromJSON (WebOnly f PollingTime)
-    ) =>
-    FromJSON (Config f)
+newtype ConfigError = ConfigError Text deriving (Show, Exception)
 
-confErr :: String
-confErr = "Parsing config error: "
+getConfig :: FilePath -> IO Config
+getConfig = input auto . T.pack
 
-getConfig :: FromJSON (Config f) => FilePath -> IO (Config f)
-getConfig fp = BL.readFile fp >>= either parsingFail pure . eitherDecode
-  where
-    parsingFail = fail . (confErr <>) . show
+missingFieldError :: (Monad m, MonadThrow m, Logger.HasLogger m) => Text -> m a
+missingFieldError f = do
+  let err = "Some mandatory field(" <> f <> ") is missing in configuration file."
+  Logger.error err
+  throwM $ ConfigError err

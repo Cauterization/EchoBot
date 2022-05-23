@@ -2,24 +2,26 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Telegram.Internal where
+module FrontEnd.Telegram.Internal where
 
-import Bot.Types ( Repeat, ID(ID) )
-import Data.Aeson ( Object, FromJSON(parseJSON), (.:), withObject )
-import Data.Foldable ( asum )
+import Bot.Types (ID (ID), Repeat)
+import Data.Aeson (FromJSON (parseJSON), Object, withObject, (.:))
+import Data.Foldable (asum)
 import Data.Semigroup (Max (..))
 import Deriving.Aeson
-    ( Generic,
-      CustomJSON(CustomJSON),
-      FieldLabelModifier,
-      StripPrefix,
-      SumUntaggedValue,
-      CamelToSnake )
+  ( CamelToSnake,
+    CustomJSON (CustomJSON),
+    FieldLabelModifier,
+    Generic,
+    StripPrefix,
+    SumUntaggedValue,
+  )
 import Extended.Text (Text)
 import Extended.Text qualified as T
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.Arbitrary.Generic
-    ( GenericArbitrary(GenericArbitrary) )
+  ( GenericArbitrary (GenericArbitrary),
+  )
 
 type ErrorCode = Int
 

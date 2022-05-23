@@ -1,14 +1,15 @@
 module App.Env where
 
-import App.Config ( Config(..) )
+import App.Config (Config (..))
 import Bot.FrontEnd
-    ( Token, IsFrontEnd(BotUser, FrontData, WebOnly, newFrontData) )
-import Bot.Types ( Repeat, PollingTime )
-import Data.IORef ( IORef, newIORef )
+  ( IsFrontEnd (BotFrontEnv, BotUser, mkFrontEnv),
+  )
+import Bot.Types (Repeat)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.IORef (IORef, newIORef)
 import Data.Map qualified as M
-import Data.Text (Text)
-import Logger.Handle qualified as Logger
-import Logger.IO qualified as Logger
+import Extended.Text (Text)
+import Logger qualified
 
 data Env f = Env
   { envLogger :: !(Logger.Logger IO),
@@ -16,19 +17,15 @@ data Env f = Env
     envHelpMessage :: !Text,
     envRepeatMessage :: !Text,
     envRepeats :: !(IORef (M.Map (BotUser f) Repeat)),
-    envToken :: !(WebOnly f (Token f)),
-    envFrontData :: !(IORef (FrontData f)),
-    envPollingTime :: !(WebOnly f PollingTime)
+    envFront :: !(IORef (BotFrontEnv f))
   }
 
-newEnv :: forall f. IsFrontEnd f => Config f -> IO (Env f)
+newEnv :: forall f. IsFrontEnd f => Config -> Logger.LoggerMIO (Env f)
 newEnv Config {..} = do
-  envRepeats <- newIORef M.empty
-  envFrontData <- newFrontData @f cToken >>= newIORef
   let envLogger = Logger.fromConfig cLogger
       envDefaultRepeats = cDefaultRepeats
       envHelpMessage = cHelpMessage
       envRepeatMessage = cRepeatMessage
-      envToken = cToken
-      envPollingTime = cPollingTime
+  envRepeats <- liftIO $ newIORef M.empty
+  envFront <- mkFrontEnv @f Config {..} >>= liftIO . newIORef
   pure $ Env {..}

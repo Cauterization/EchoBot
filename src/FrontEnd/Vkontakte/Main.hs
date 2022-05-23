@@ -1,62 +1,71 @@
-module Vkontakte.FrontEnd where
+module FrontEnd.Vkontakte.Main where
 
-import Bot.Error ( parse, BotError(BadCallbackError) )
-import Bot.FrontEnd (Action, IsFrontEnd, IsWebFrontEnd, Token (..))
+import Bot.Error
+  ( BotError (BadCallbackError),
+    parse,
+    parsingError,
+  )
 import Bot.FrontEnd qualified as Bot
-import Bot.Types ( ID, PollingTime, URL )
-import Control.Monad ((>=>))
-import Control.Monad.Catch ( MonadThrow(..) )
-import Data.Aeson ( FromJSON, object, KeyValue((.=)) )
+import Bot.Types (ID, Token (unToken), URL)
+import Bot.Web qualified as Bot
+import Control.Lens ((.~))
+import Control.Monad.Catch (MonadThrow (..))
+import Control.Monad.Reader ((>=>))
+import Data.Aeson (KeyValue ((.=)), object)
 import Data.ByteString.Lazy qualified as BSL
 import Extended.HTTP qualified as HTTP
-import Extended.Text (Text)
+import Extended.Text (Text, readEither)
 import Extended.Text qualified as T
-import GHC.Generics ( Generic )
-import Logger.Handle ((.<))
-import Logger.Handle qualified as Logger
-import Vkontakte.Internal
-    ( BadResponse(..),
-      GoodResponse(goodTs, updates),
-      User,
-      fromTs,
-      Attachment(..),
-      Callback(BadCallback, GoodCallback),
-      Update(..),
-      FrontData(..) )
+import FrontEnd.Vkontakte.Config (VKConfig)
+import FrontEnd.Vkontakte.Env
+  ( VKEnv (..),
+    envKey,
+    envServer,
+    envTs,
+    getReponseWithFrontData,
+    mkVkEnv,
+  )
+import FrontEnd.Vkontakte.Internal
+  ( Attachment (..),
+    BadResponse (..),
+    Callback (BadCallback, GoodCallback),
+    FrontDataResponse (key, server, ts),
+    FrontUser,
+    GoodResponse (..),
+    Update (..),
+    User,
+  )
+import Logger ((.<))
+import Logger qualified
+import Wait (MonadWait)
 
-data Vkontakte = Vkontakte deriving (Show, Generic, FromJSON)
+data Vkontakte
 
-instance IsFrontEnd Vkontakte where
-  type WebOnly Vkontakte a = a
+instance Bot.IsFrontEnd Vkontakte where
+  type BotIOType Vkontakte = 'Bot.Web
 
-  type BotUser Vkontakte = ID User
+  type BotConfig Vkontakte = VKConfig
+
+  type BotFrontEnv Vkontakte = VKEnv
+
+  mkFrontEnv = mkVkEnv
+
+  type BotUser Vkontakte = FrontUser
 
   type Update Vkontakte = Update
 
-  type FrontData Vkontakte = FrontData
-
-  newFrontData = newFrontData
-
   getActions = getActions
 
-  prepareRequest = prepareRequest
+instance Bot.IsWebFrontEnd Vkontakte where
+  getToken = envToken <$> Bot.getFrontEnv
 
-instance
-  ( Monad m,
-    MonadThrow m,
-    HTTP.MonadHttp m,
-    Logger.HasLogger m,
-    Bot.HasEnv Vkontakte m
-  ) =>
-  IsWebFrontEnd m Vkontakte
-  where
   getUpdatesURL = getUpdatesURL
 
   type Response Vkontakte = GoodResponse
 
-  extractFrontData = fromTs . T.read . goodTs
-
   extractUpdates = updates
+
+  updateFrontEnv = updateFrontEnv
 
   type BadResponse Vkontakte = BadResponse
 
@@ -64,65 +73,24 @@ instance
 
   checkCallback = checkCallback
 
-newFrontData ::
-  (Monad m, HTTP.MonadHttp m, MonadThrow m) =>
-  Token f ->
-  m FrontData
-newFrontData (Token t) = do
-  let req =
-        "https://api.vk.com/method/groups.getLongPollServer"
-          <> "?group_id=204518764"
-          <> "&access_token="
-          <> t
-          <> "&v=5.81"
-  HTTP.tryRequest req >>= parse
-
-getUpdatesURL :: Token Vkontakte -> FrontData -> PollingTime -> URL
-getUpdatesURL _ FrontData {..} polling =
-  mconcat
-    [ server,
-      "?act=a_check&key=",
-      key,
-      "&ts=",
-      T.show ts,
-      "&wait=",
-      T.show polling
-    ]
-
-handleBadResponse ::
-  ( Monad m,
-    MonadThrow m,
-    HTTP.MonadHttp m,
-    Logger.HasLogger m,
-    Bot.HasEnv Vkontakte m
-  ) =>
-  BadResponse ->
-  m ()
-handleBadResponse BadResponse {..} = case failed of
-  1 ->
-    Logger.warning "Update history is out of date. Updating TS... "
-      >> maybe
-        (Logger.error "Can't update TS - threre is no TS in this response!")
-        (Bot.setFrontData . fromTs)
-        badTs
-  2 ->
-    Logger.warning "Key is out of date. Getting new key..."
-      >> Bot.getToken >>= newFrontData >>= Bot.setFrontData
-  3 ->
-    Logger.warning "FrontEnd data is lost, requesting new one..."
-      >> Bot.getToken >>= newFrontData >>= Bot.setFrontData
-  _ -> Logger.error "Unknown error code. IDK what to do with this."
-
-checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
-checkCallback =
-  parse >=> \case
-    GoodCallback _ -> pure ()
-    BadCallback -> throwM $ BadCallbackError ""
+getUpdatesURL :: (Monad m, Bot.HasEnv Vkontakte m) => m URL
+getUpdatesURL = do
+  VKEnv {..} <- Bot.getFrontEnv @Vkontakte
+  pure $
+    mconcat
+      [ _envServer,
+        "?act=a_check&key=",
+        _envKey,
+        "&ts=",
+        T.show _envTs,
+        "&wait=",
+        T.show envPollingTime
+      ]
 
 getActions ::
   (Monad m, Bot.HasEnv Vkontakte m, Logger.HasLogger m, MonadThrow m) =>
   Update ->
-  m [Action Vkontakte]
+  m [Bot.Action Vkontakte]
 getActions u = case u of
   RepeatUpdate userID ->
     pure . Bot.SendRepeatMessage userID
@@ -231,3 +199,41 @@ hideKeyboard :: Text
 hideKeyboard =
   "&keyboard="
     <> HTTP.percentEncode @Text "{\"buttons\":[],\"inline\":false}"
+
+updateFrontEnv :: (Bot.HasEnv Vkontakte m, MonadThrow m) => GoodResponse -> m ()
+updateFrontEnv GoodResponse {..}
+  | Right ts' <- readEither goodTs = Bot.setFrontEnv (envTs .~ ts')
+  | otherwise = parsingError "Can't read ts from vkontakte response."
+
+checkCallback :: (Monad m, Logger.HasLogger m, MonadThrow m) => BSL.ByteString -> m ()
+checkCallback =
+  parse >=> \case
+    GoodCallback _ -> pure ()
+    BadCallback -> throwM $ BadCallbackError ""
+
+handleBadResponse ::
+  ( Monad m,
+    MonadThrow m,
+    HTTP.MonadHttp m,
+    Logger.HasLogger m,
+    MonadWait m,
+    Bot.HasEnv Vkontakte m
+  ) =>
+  BadResponse ->
+  m ()
+handleBadResponse BadResponse {..} = case failed of
+  1 -> do
+    Logger.warning "Update history is out of date. Updating TS... "
+    maybe
+      (Logger.error "Can't update TS - threre is no TS in this response!")
+      (Bot.setFrontEnv . (envTs .~))
+      badTs
+  2 -> do
+    Logger.warning "Key is out of date. Getting new key..."
+    resp <- getReponseWithFrontData =<< Bot.getToken
+    Bot.setFrontEnv (envKey .~ key resp)
+  3 -> do
+    Logger.warning "FrontEnd data is lost, requesting new one..."
+    resp <- getReponseWithFrontData =<< Bot.getToken
+    Bot.setFrontEnv ((envKey .~ key resp) . (envTs .~ ts resp) . (envServer .~ server resp))
+  _ -> Logger.error "Unknown error code. IDK what to do with this."

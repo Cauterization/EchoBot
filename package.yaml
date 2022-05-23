@@ -25,6 +25,7 @@ dependencies:
 - bytestring
 - containers
 - deriving-aeson
+- dhall
 - directory
 - exceptions
 - extra
@@ -38,6 +39,8 @@ dependencies:
 - text
 - time
 - unordered-containers
+- lens
+- optparse-applicative
 
 - QuickCheck
 - generic-arbitrary

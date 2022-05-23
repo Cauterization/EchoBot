@@ -1,75 +1,56 @@
-module Telegram.FrontEnd where
+module FrontEnd.Telegram.Main where
 
-import Bot.Error ( parse, BotError (BadCallbackError) )
-import Bot.FrontEnd (Action, IsFrontEnd, IsWebFrontEnd, Token (..))
+import Bot.Error (BotError (BadCallbackError), parse)
 import Bot.FrontEnd qualified as Bot
-import Bot.Types ( ID(ID), PollingTime, URL )
-import Control.Monad.Catch ( MonadThrow (throwM) )
-import Data.Aeson ( FromJSON, object, KeyValue((.=)) )
+import Bot.Types (ID (ID), Token (unToken), URL)
+import Bot.Web qualified as Bot
+import Control.Lens ((.~))
+import Control.Monad.Catch (MonadThrow (..))
+import Data.Aeson (KeyValue ((.=)), object)
 import Data.ByteString.Lazy qualified as BSL
 import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
 import Extended.Text qualified as T
-import GHC.Generics ( Generic )
-import Logger.Handle ((.<))
-import Logger.Handle qualified as Logger
-import Telegram.Internal
-    ( BadResponse(..),
-      GoodResponse(..),
-      Callback(BadCallback, GoodCallback),
-      Update(..),
-      Offset(..),
-      Chat,
-      User )
+import FrontEnd.Telegram.Config (TGConfig)
+import FrontEnd.Telegram.Env (TGEnv (..), envOffset, mkTGEnv)
+import FrontEnd.Telegram.Internal
+  ( BadResponse (BadResponse),
+    Callback (BadCallback, GoodCallback),
+    Chat,
+    GoodResponse (..),
+    Update (..),
+    User,
+  )
+import Logger ((.<))
+import Logger qualified
 
-data Telegram = Telegram deriving (Show, Generic, FromJSON)
+data Telegram
 
-data BotUser = BotUser (ID User) (ID Chat) deriving (Show, Eq, Ord)
+instance Bot.IsFrontEnd Telegram where
+  type BotIOType Telegram = 'Bot.Web
 
-body :: Text
-body = "https://api.vk.com/method/messages.send"
+  type BotConfig Telegram = TGConfig
 
-version :: Text
-version = "&v=5.81"
+  type BotFrontEnv Telegram = TGEnv
 
-instance IsFrontEnd Telegram where
-  type WebOnly Telegram a = a
+  mkFrontEnv = mkTGEnv
 
   type BotUser Telegram = BotUser
 
   type Update Telegram = Update
 
-  type FrontData Telegram = Offset
-
-  newFrontData _ = pure mempty
-
   getActions = getActions
 
-  prepareRequest = prepareRequest
+instance Bot.IsWebFrontEnd Telegram where
+  getToken = envToken <$> Bot.getFrontEnv
 
-instance
-  ( Monad m,
-    MonadThrow m,
-    HTTP.MonadHttp m,
-    Logger.HasLogger m,
-    Bot.HasEnv Telegram m
-  ) =>
-  IsWebFrontEnd m Telegram
-  where
   getUpdatesURL = getUpdatesURL
 
   type Response Telegram = GoodResponse
 
-  extractFrontData GoodResponse {..} = mconcat $ map (Offset . getOffsetFromUpdate) result
-    where
-      getOffsetFromUpdate = \case
-        EchoUpdate (ID updateID) _ _ _ _ -> updateID
-        RepeatUpdate (ID updateID) _ _ -> updateID
-        HelpUpdate (ID updateID) _ _ -> updateID
-        UpdateRepeats (ID updateID) _ _ _ _ -> updateID
-        Trash (ID updateID) _ -> updateID
-
   extractUpdates = result
+
+  updateFrontEnv = updateFrontEnv
 
   type BadResponse Telegram = BadResponse
 
@@ -77,10 +58,12 @@ instance
 
   checkCallback = checkCallback
 
+data BotUser = BotUser (ID User) (ID Chat) deriving (Show, Eq, Ord)
+
 getActions ::
   (Monad m, Bot.HasEnv Telegram m, Logger.HasLogger m, MonadThrow m) =>
   Update ->
-  m [Action Telegram]
+  m [Bot.Action Telegram]
 getActions = \case
   u@(RepeatUpdate _ userID chatID) -> do
     pure . Bot.SendRepeatMessage (BotUser userID chatID)
@@ -110,14 +93,14 @@ prepareRequest ::
   Update ->
   m URL
 prepareRequest update = do
-  token <- unToken <$> Bot.getToken
+  token <- unToken . envToken <$> Bot.getFrontEnv
 
   let chatID = case update of
         EchoUpdate _ _ c _ _ -> c
         RepeatUpdate _ _ c -> c
         HelpUpdate _ _ c -> c
         UpdateRepeats _ _ c _ _ -> c
-        Trash{} -> 0
+        Trash {} -> 0
 
       method = case update of
         UpdateRepeats {} -> "/editMessageReplyMarkup"
@@ -142,16 +125,18 @@ prepareRequest update = do
         rest
       ]
 
-getUpdatesURL :: Token Telegram -> Bot.FrontData Telegram -> PollingTime -> URL
-getUpdatesURL (Token t) offset polling =
-  mconcat
-    [ "https://api.telegram.org/bot",
-      t,
-      "/getUpdates?offset=",
-      T.show $ offset + 1,
-      "&timeout=",
-      T.show polling
-    ]
+getUpdatesURL :: (Monad m, Bot.HasEnv Telegram m) => m URL
+getUpdatesURL = do
+  TGEnv {..} <- Bot.getFrontEnv @Telegram
+  pure $
+    mconcat
+      [ "https://api.telegram.org/bot",
+        unToken envToken,
+        "/getUpdates?offset=",
+        T.show $ _envOffset + 1,
+        "&timeout=",
+        T.show envPollingTime
+      ]
 
 keyboard :: Text
 keyboard =
@@ -174,6 +159,18 @@ checkCallback cb =
     GoodCallback _ -> pure ()
     (BadCallback _ desc) -> throwM $ BadCallbackError desc
 
+updateFrontEnv :: (Bot.HasEnv Telegram m, MonadThrow m) => GoodResponse -> m ()
+updateFrontEnv GoodResponse {..} = case result of
+  [] -> pure ()
+  us -> Bot.setFrontEnv $ (envOffset .~) $ getOffset $ last us
+  where
+    getOffset = \case
+      EchoUpdate (ID updateID) _ _ _ _ -> updateID
+      RepeatUpdate (ID updateID) _ _ -> updateID
+      HelpUpdate (ID updateID) _ _ -> updateID
+      UpdateRepeats (ID updateID) _ _ _ _ -> updateID
+      Trash (ID updateID) _ -> updateID
+
 handleBadResponse :: (Monad m, Logger.HasLogger m, MonadThrow m) => BadResponse -> m ()
 handleBadResponse (BadResponse errCode desc) = case errCode of
   303 -> Logger.error $ "SEE_OTHER: " <> desc
@@ -184,9 +181,7 @@ handleBadResponse (BadResponse errCode desc) = case errCode of
   406 -> Logger.error $ "NOT_ACCEPTABLE: " <> desc
   420 -> Logger.error $ "FLOOD: " <> desc
   500 -> Logger.error $ "INTERNAL TG ERROR: " <> desc
-  _   -> do
+  _ -> do
     Logger.error "UNKNOWN TG ERROR."
     Logger.error $ "Error code: " .< T.show errCode
     Logger.error $ " Description " <> desc
-
-

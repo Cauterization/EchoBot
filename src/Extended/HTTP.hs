@@ -10,12 +10,14 @@ module Extended.HTTP
 where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Aeson ( encode, ToJSON )
+import Data.Aeson (ToJSON, encode)
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy qualified as BSL
-import Data.Functor ( (<&>) )
+import Data.Functor ((<&>))
 import Extended.Text (Text)
 import Extended.Text qualified as T
+import Logger ((.<))
+import Logger qualified
 import Network.HTTP.Client.Conduit (HttpException (..), HttpExceptionContent (..))
 import Network.HTTP.Simple
 import Network.HTTP.Types.URI (urlEncode)
@@ -31,8 +33,10 @@ percentEncode = T.pack . BS8.unpack . urlEncode True . BSL.toStrict . encode
 class MonadHttp m where
   tryRequest :: Text -> m BSL.ByteString
 
-instance {-# OVERLAPPABLE #-} MonadIO m => MonadHttp m where
-  tryRequest (T.unpack -> initReq) = liftIO $ do
-    req <- parseRequest initReq
-    httpBS req <&> BSL.fromStrict . getResponseBody
-
+instance (MonadIO m, Logger.HasLogger m) => MonadHttp m where
+  tryRequest (T.unpack -> initReq) = do
+    req <- liftIO $ parseRequest initReq
+    Logger.debug $ "Outcomming request:\n" .< req
+    response <- httpBS req <&> BSL.fromStrict . getResponseBody
+    Logger.debug $ "Recieved response:\n" .< response
+    pure response

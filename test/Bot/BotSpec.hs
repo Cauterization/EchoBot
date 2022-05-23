@@ -55,7 +55,7 @@ import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
 import Extended.Text qualified as T
 import Logger.Handle ((.<), (>.))
-import Logger.Handle qualified as Logger
+import Logger qualified 
 import Telegram.FrontEnd (Telegram)
 import Telegram.FrontEnd qualified as TG
 import Telegram.Internal qualified as TG

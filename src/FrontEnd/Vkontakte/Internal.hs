@@ -1,13 +1,18 @@
 {-# LANGUAGE DeriveAnyClass #-}
 
-module Vkontakte.Internal where
+module FrontEnd.Vkontakte.Internal where
 
-import Bot.Types ( Repeat, ID )
-import Control.Applicative ( Alternative((<|>)) )
+import Bot.Types (ID, Repeat)
+import Control.Applicative (Alternative ((<|>)))
 import Data.Aeson
-    ( Object, FromJSON(parseJSON), (.:), withObject, ToJSON, (.:?) )
+  ( FromJSON (parseJSON),
+    Object,
+    ToJSON,
+    withObject,
+    (.:),
+    (.:?),
+  )
 import Data.Aeson.Key (toText)
-import Data.Function (on)
 import Data.Functor ((<&>))
 import Deriving.Aeson
   ( CamelToSnake,
@@ -20,7 +25,8 @@ import Extended.Text qualified as T
 import GHC.Generics (Generic)
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.Arbitrary.Generic
-    ( GenericArbitrary(GenericArbitrary) )
+  ( GenericArbitrary (GenericArbitrary),
+  )
 
 data User
 
@@ -34,33 +40,20 @@ type ErrorCode = Int
 
 type FrontUser = ID User
 
-data FrontData = FrontData
+data FrontDataResponse = FrontDataResponse
   { key :: !Key,
     server :: !Server,
     ts :: !Ts
   }
   deriving (Show, Generic, Eq, ToJSON)
 
-instance Semigroup FrontData where
-  a <> b = FrontData k s t
-    where
-      k = key $ if T.null (key a) then b else a
-      s = server $ if T.null (server a) then b else a
-      t = (max `on` ts) a b
-
-instance Monoid FrontData where
-  mempty = fromTs 0
-
-fromTs :: Ts -> FrontData
-fromTs = FrontData "" ""
-
-instance FromJSON FrontData where
-  parseJSON = withObject "FrontData VK" $ \v -> do
+instance FromJSON FrontDataResponse where
+  parseJSON = withObject "FirstResponse VK" $ \v -> do
     r <- v .: "response"
     key <- r .: "key"
     server <- r .: "server"
     Right ts <- r .: "ts" <&> T.readEither
-    pure $ FrontData {..}
+    pure $ FrontDataResponse {..}
 
 data GoodResponse = GoodResponse {goodTs :: !Text, updates :: [Update]}
   deriving (Show, Generic)

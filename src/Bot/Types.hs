@@ -4,8 +4,7 @@ module Bot.Types where
 
 import Control.Monad (unless)
 import Data.Aeson (FromJSON (parseJSON))
-import Extended.Text (Text)
-import GHC.Generics (Generic)
+import Dhall (FromDhall, Generic, Text)
 import Test.QuickCheck (Arbitrary)
 
 newtype ID e = ID {idVal :: Int}
@@ -13,7 +12,7 @@ newtype ID e = ID {idVal :: Int}
 
 newtype Repeat = Repeat {unRepeat :: Int}
   deriving (Generic, Eq, Ord)
-  deriving newtype (Arbitrary, Num, Read, Show)
+  deriving newtype (Arbitrary, Num, Read, Show, FromDhall)
 
 instance FromJSON Repeat where
   parseJSON r = do
@@ -22,5 +21,9 @@ instance FromJSON Repeat where
     pure $ Repeat x
 
 type URL = Text
+
+newtype Token = Token {unToken :: Text}
+  deriving (Show)
+  deriving newtype (FromDhall)
 
 type PollingTime = Int

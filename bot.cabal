@@ -28,20 +28,27 @@ library
       App.App
       App.Config
       App.Env
+      App.Opts
       Bot.Bot
       Bot.Error
       Bot.FrontEnd
       Bot.IO
       Bot.Types
-      Console.FrontEnd
+      Bot.Web
       Extended.HTTP
       Extended.Text
-      Logger.Handle
-      Logger.IO
-      Telegram.FrontEnd
-      Telegram.Internal
-      Vkontakte.FrontEnd
-      Vkontakte.Internal
+      FrontEnd.Console.Env
+      FrontEnd.Console.Main
+      FrontEnd.Telegram.Config
+      FrontEnd.Telegram.Env
+      FrontEnd.Telegram.Internal
+      FrontEnd.Telegram.Main
+      FrontEnd.Vkontakte.Config
+      FrontEnd.Vkontakte.Env
+      FrontEnd.Vkontakte.Internal
+      FrontEnd.Vkontakte.Main
+      Logger
+      Wait
   other-modules:
       Paths_bot
   hs-source-dirs:
@@ -84,6 +91,7 @@ library
     , conduit
     , containers
     , deriving-aeson
+    , dhall
     , directory
     , exceptions
     , extra
@@ -93,7 +101,9 @@ library
     , http-client-tls
     , http-conduit
     , http-types
+    , lens
     , mtl
+    , optparse-applicative
     , scientific
     , text
     , time
@@ -146,6 +156,7 @@ executable bot-exe
     , conduit
     , containers
     , deriving-aeson
+    , dhall
     , directory
     , exceptions
     , extra
@@ -155,7 +166,9 @@ executable bot-exe
     , http-client-tls
     , http-conduit
     , http-types
+    , lens
     , mtl
+    , optparse-applicative
     , scientific
     , text
     , time
@@ -210,6 +223,7 @@ test-suite bot-test
     , conduit
     , containers
     , deriving-aeson
+    , dhall
     , directory
     , exceptions
     , extra
@@ -219,7 +233,9 @@ test-suite bot-test
     , http-client-tls
     , http-conduit
     , http-types
+    , lens
     , mtl
+    , optparse-applicative
     , scientific
     , text
     , time

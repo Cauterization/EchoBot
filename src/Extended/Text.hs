@@ -10,11 +10,11 @@ module Extended.Text
   )
 where
 
-import Control.Arrow
+import Control.Arrow (ArrowChoice (left))
 import Data.Text
 import Data.Text.Encoding
 import Data.Text.IO
-import Test.QuickCheck.Arbitrary.Generic ( Arbitrary(arbitrary) )
+import Test.QuickCheck.Arbitrary.Generic (Arbitrary (arbitrary))
 import Text.Read qualified as Read
 import Prelude hiding (read, show)
 import Prelude qualified

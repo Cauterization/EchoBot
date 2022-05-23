@@ -1,102 +1,90 @@
+{-# LANGUAGE DataKinds #-}
+
 module Bot.FrontEnd where
 
-import Bot.Types ( Repeat(unRepeat), PollingTime, URL )
-import Control.Monad (guard)
-import Control.Monad.Catch ( MonadThrow )
-import Data.Aeson
-    ( FromJSON(parseJSON), withText, (.:), withObject )
-import Data.ByteString.Lazy qualified as BL
-import Data.Kind (Type)
+import App.Config (Config)
+import Bot.Types (Repeat (unRepeat), URL)
+import Control.Monad.Catch (MonadThrow)
+import Data.Kind (Constraint, Type)
 import Data.List qualified as L
-import Data.Maybe ( fromMaybe )
-import Data.String ( IsString(..) )
+import Data.Maybe (fromMaybe)
+import Data.String (IsString (..))
 import Data.Typeable (Proxy (..), Typeable, typeOf)
-import Deriving.Aeson ( Generic )
+import Deriving.Aeson (Generic)
 import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
-import Extended.Text qualified as T
-import Logger.Handle qualified as Logger
+import Logger qualified
+import Wait (MonadWait)
+
+newtype FrontName f = FrontName Text
+  deriving (Generic, Show)
 
 frontName :: forall f s. (Typeable f, IsString s) => s
 frontName =
   let fullName = show (typeOf (Proxy @f))
    in fromString $ fromMaybe fullName $ L.stripPrefix "Proxy * " fullName
 
-newtype Token f = Token {unToken :: Text}
-  deriving (Show)
+data BotIO = NonWeb | Web
 
-instance Typeable f => FromJSON (Token f) where
-  parseJSON = withObject "Token" $ \v -> Token <$> v .: (frontName @f)
+type family IORequirements a m :: Constraint where
+  IORequirements 'NonWeb m = ()
+  IORequirements 'Web m = HTTP.MonadHttp m
 
--- | Dummy data for non-web front-end (console)
-data NotRequired = NotRequired deriving (Show, Eq, Ord)
-
-instance Semigroup NotRequired where (<>) = const
-
-instance Monoid NotRequired where mempty = NotRequired
-
-instance FromJSON NotRequired where
-  parseJSON _ = pure NotRequired
-
-newtype FrontName f = FrontName Text
-  deriving (Generic, Show)
-
-instance (Typeable f) => FromJSON (FrontName f) where
-  parseJSON = withText "FrontEnd" $ \t -> do
-    guard $ "Proxy * " <> t == T.show (typeOf (Proxy @f))
-    pure $ FrontName t
-
-class (Show (BotUser f), Monoid (FrontData f), Typeable f) => IsFrontEnd f where
-  -- | Set NotRequired for no-web front-end or a otherwise
-  type WebOnly f a :: Type
-
+class (Show (BotUser f), Ord (BotUser f), Show (BotFrontEnv f), Typeable f) => IsFrontEnd f where
   -- | Key of bot's map with repeatitions
   type BotUser f :: Type
 
-  -- | A bot stored data, specific for each front-end
-  -- e.g. vkontakte server, key and ts
-  -- telegram offset
-  -- or console's flag for waiting of repeatitons
-  type FrontData f :: Type
+  type BotConfig f :: Type
 
-  newFrontData ::
-    (Monad m, MonadThrow m, HTTP.MonadHttp m) =>
-    WebOnly f (Token f) ->
-    m (FrontData f)
+  type BotFrontEnv f :: Type
+
+  type BotIOType f :: BotIO
+
+  mkFrontEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) => Config -> m (BotFrontEnv f)
+
+  --   mkEnv :: (Monad m, MonadThrow m) BotConfig f ->
+
+  --   newFrontData ::
+  --     (Monad m, MonadThrow m, HTTP.MonadHttp m) =>
+  --     WebOnly f (Token f) ->
+  --     m (FrontData f)
 
   -- | Updates that make up the front-end response
   type Update f :: Type
 
-  -- | Function to parse each update
   getActions ::
-    (Monad m, HasEnv f m, Logger.HasLogger m, HasEnv f m, MonadThrow m) =>
+    (Monad m, Logger.HasLogger m, MonadThrow m, HasEnv f m) =>
     Update f ->
     m [Action f]
 
-  prepareRequest :: (Monad m, HasEnv f m) => Update f -> m URL
+--   -- | Function to parse each update
+--   getActions ::
+--     (Monad m, HasEnv f m, Logger.HasLogger m, HasEnv f m, MonadThrow m) =>
+--     Update f ->
+--     m [Action f]
+
+--   prepareRequest :: (Monad m, HasEnv f m) => Update f -> m URL
 
 -- | Bot environment seters and geters
 class HasEnv f m | m -> f where
   getRepeats :: BotUser f -> m (Maybe Repeat)
   setRepeats :: BotUser f -> Repeat -> m ()
   defaultRepeats :: m Repeat
-  getFrontData :: m (FrontData f)
-  setFrontData :: FrontData f -> m ()
-  getToken :: m (WebOnly f (Token f))
-  getPollingTime :: m (WebOnly f PollingTime)
+  getFrontEnv :: m (BotFrontEnv f)
+  setFrontEnv :: (BotFrontEnv f -> BotFrontEnv f) -> m ()
   getHelpMessage :: m Text
   getRepeatMessage :: m Text
 
 getRepeatsFor :: forall f m. (HasEnv f m, Monad m) => BotUser f -> m Int
 getRepeatsFor u = getRepeats @f u >>= fmap unRepeat . maybe (defaultRepeats @f) pure
 
--- | Wee need that thing because of vkontakte's partial frontEnd data update
-updateFrontData ::
-  forall f m.
-  (HasEnv f m, Monad m, Semigroup (FrontData f)) =>
-  FrontData f ->
-  m ()
-updateFrontData fd = getFrontData @f >>= setFrontData @f . (fd <>)
+-- -- | Wee need that thing because of vkontakte's partial frontEnd data update
+-- updateFrontData ::
+--   forall f m.
+--   (HasEnv f m, Monad m, Semigroup (FrontData f)) =>
+--   FrontData f ->
+--   m ()
+-- updateFrontData fd = getFrontData @f >>= setFrontData @f . (fd <>)
 
 -- | Bot actions
 data Action f
@@ -105,36 +93,36 @@ data Action f
   | SendHelpMessage (BotUser f) URL
   | SendRepeatMessage (BotUser f) URL
   | UpdateRepeats (BotUser f) Repeat
-  | HideKeyboard (BotUser f) (WebOnly f URL)
+  | HideKeyboard (BotUser f) URL
 
-deriving instance (Show (BotUser f), Show (WebOnly f URL)) => Show (Action f)
+-- deriving instance (Show (BotUser f), Show (WebOnly f URL)) => Show (Action f)
 
-deriving instance (Eq (BotUser f), Eq (WebOnly f URL)) => Eq (Action f)
+-- deriving instance (Eq (BotUser f), Eq (WebOnly f URL)) => Eq (Action f)
 
--- | Class for web front-end only
-class
-  ( WebOnly f (Token f) ~ Token f,
-    WebOnly f (FrontData f) ~ FrontData f,
-    Semigroup (FrontData f),
-    WebOnly f PollingTime ~ PollingTime,
-    WebOnly f Text ~ Text,
-    HasEnv f m
-  ) =>
-  IsWebFrontEnd m f
-  where
-  -- | A front-end response consisting of updates and front-end data
-  type Response f :: Type
+-- -- | Class for web front-end only
+-- class
+--   ( WebOnly f (Token f) ~ Token f,
+--     WebOnly f (FrontData f) ~ FrontData f,
+--     Semigroup (FrontData f),
+--     WebOnly f PollingTime ~ PollingTime,
+--     WebOnly f Text ~ Text,
+--     HasEnv f m
+--   ) =>
+--   IsWebFrontEnd m f
+--   where
+--   -- | A front-end response consisting of updates and front-end data
+--   type Response f :: Type
 
-  extractFrontData :: Response f -> FrontData f
+--   extractFrontData :: Response f -> FrontData f
 
-  extractUpdates :: Response f -> [Update f]
+--   extractUpdates :: Response f -> [Update f]
 
-  -- | URL for geting updates
-  getUpdatesURL :: Token f -> FrontData f -> PollingTime -> URL
+--   -- | URL for geting updates
+--   getUpdatesURL :: Token f -> FrontData f -> PollingTime -> URL
 
-  -- | A response received during errors
-  type BadResponse f :: Type
+--   -- | A response received during errors
+--   type BadResponse f :: Type
 
-  handleBadResponse :: BadResponse f -> m ()
+--   handleBadResponse :: BadResponse f -> m ()
 
-  checkCallback :: BL.ByteString -> m ()
+--   checkCallback :: BL.ByteString -> m () -}
