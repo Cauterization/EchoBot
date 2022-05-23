@@ -32,26 +32,26 @@ executeAction = \case
   UpdateRepeats user rep -> do
     Logger.info $ "New number of repeations for user " .< user <> " is " .< rep
     setRepeats user rep
-  HideKeyboard user url -> do
+  HideKeyboard user toSend -> do
     Logger.info $ "Hiding keyboard from " .< user
-    sendResponse @f url
-  SendEcho user text url -> do
+    sendResponse @f toSend
+  SendEcho user text toSend -> do
     Logger.info $ "Sending echo:\n" <> text <> "\nto: " .< user
-    sendResponse @f url
-  SendRepeatEcho user text url -> do
+    sendResponse @f toSend
+  SendRepeatEcho user text toSend -> do
     rep <- getRepeatsFor user
     Logger.info $
       "Sending echo:\n" <> text
         <> "\nto: " .< user
         <> " " .< rep
         <> " times"
-    replicateM_ rep (sendResponse @f url)
-  SendHelpMessage user url -> do
+    replicateM_ rep (sendResponse @f toSend)
+  SendHelpMessage user toSend -> do
     Logger.info $ "Sending help_message to " .< user
-    sendResponse @f url
-  SendRepeatMessage user url -> do
+    sendResponse @f toSend
+  SendRepeatMessage user toSend -> do
     Logger.info $ "Sending repeat_message to " .< user
-    sendResponse @f url
+    sendResponse @f toSend
 
 botHandler :: forall f m a. IsBot f m => m a -> m a
 botHandler = handle $ \case

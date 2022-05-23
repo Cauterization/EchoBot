@@ -22,7 +22,8 @@ import Control.Monad.Catch (MonadThrow)
 import Data.Aeson (FromJSON (parseJSON), eitherDecode, withObject, (.:))
 import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
-import FrontEnd.Vkontakte.Config (VKConfig (cToken))
+import Extended.Text qualified as T
+import FrontEnd.Vkontakte.Config (VKConfig (..), VKGroup)
 import FrontEnd.Vkontakte.Internal
   ( FrontDataResponse (..),
     Key,
@@ -37,26 +38,29 @@ data VKEnv = VKEnv
     _envTs :: !Ts,
     _envKey :: !Key,
     _envServer :: !Server,
-    envPollingTime :: !PollingTime
+    envPollingTime :: !PollingTime,
+    envGroupID :: !(ID VKGroup)
   }
   deriving (Show)
 
 makeLenses ''VKEnv
 
 mkVkEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) => App.Config -> m VKEnv
-mkVkEnv App.Config {..} = case (cToken <$> cVKConfig, cPollingTime) of
+mkVkEnv App.Config {..} = case (cVKConfig, cPollingTime) of
   (Nothing, _) -> missingFieldError "Whole vk config file"
   (_, Nothing) -> missingFieldError "Polling time"
-  (Just t, Just p) -> toEnv t p <$> getReponseWithFrontData t
+  (Just VKConfig {..}, Just p) -> toEnv VKConfig {..} p <$> getReponseWithFrontData cToken cGroupID p
 
-getReponseWithFrontData :: (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) => Token -> m FrontDataResponse
-getReponseWithFrontData (Token t) = do
-  response <- HTTP.tryRequest req
+getReponseWithFrontData :: (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) 
+    => Token -> ID VKGroup -> PollingTime -> m FrontDataResponse
+getReponseWithFrontData (Token t) (ID groupID) pollingTime = do
+  response <- HTTP.tryRequest pollingTime req
   either (const $ handleFrontDataError response) pure $ eitherDecode response
   where
     req =
       "https://api.vk.com/method/groups.getLongPollServer"
-        <> "?group_id=204518764"
+        <> "?group_id="
+        <> T.show groupID 
         <> "&access_token="
         <> t
         <> "&v=5.81"
@@ -64,16 +68,17 @@ getReponseWithFrontData (Token t) = do
     handleFrontDataError response = do
       Logger.error $ either (const failMsg) unVkMkEnvError $ eitherDecode response
       wait 30
-      getReponseWithFrontData (Token t)
+      getReponseWithFrontData (Token t) (ID groupID) pollingTime
 
-toEnv :: Token -> PollingTime -> FrontDataResponse -> VKEnv
-toEnv t p FrontDataResponse {..} =
+toEnv :: VKConfig -> PollingTime -> FrontDataResponse -> VKEnv
+toEnv VKConfig {..} p FrontDataResponse {..} =
   VKEnv
-    { envToken = t,
+    { envToken = cToken,
       _envTs = ts,
       _envKey = key,
       _envServer = server,
-      envPollingTime = p
+      envPollingTime = p,
+      envGroupID = cGroupID
     }
 
 newtype VkMkEnvError = VkMkEnvError {unVkMkEnvError :: Text}

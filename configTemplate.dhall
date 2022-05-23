@@ -3,6 +3,7 @@ let Mode       = < None  | Display | Write   | Both >
 let LoggerConf = { cVerbosity : Verbosity, cMode : Mode}
 let FrontEnd   = < Vkontakte | Telegram | Console >
 let VKConf     = { token : Text
+                 , groupID : Integer
                  }
 let TGConf     = { token : Text
                  }
@@ -22,12 +23,13 @@ in
   , cFilePath  = "log.txt"
   }
 , cDefaultRepeats = +5
-, cHelpMessage    = "_"
-, cRepeatMessage  = "_"
+, cHelpMessage    = "This is a simple bot that sends your messages back. The following commands are also available to you:\n/help - see this message;\n/repeat - enter a new number of repetitions"
+, cRepeatMessage  = "Enter a new number of repetitions."
 , cFrontEnd = FrontEnd.Telegram
 , cPollingTime = Some +45
 , cVKConfig = Some
     { cToken = ""
+    , groupID = +0
     }
 , cTGConfig = Some
    { cToken = ""

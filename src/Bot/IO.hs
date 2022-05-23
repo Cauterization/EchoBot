@@ -12,9 +12,8 @@ import Bot.Web
         getUpdatesURL,
         handleBadResponse,
         updateFrontEnv
-      ),
+      ), getPollingTime,
   )
-import Control.Monad ((>=>))
 import Control.Monad.Catch (MonadCatch, MonadThrow (throwM))
 import Data.Aeson (eitherDecode)
 import Data.Kind (Type)
@@ -55,11 +54,14 @@ instance
     updateFrontEnv @f response
     pure $ extractUpdates @f response
 
-  sendResponse = HTTP.tryRequest >=> checkCallback @f
+  sendResponse resp = do
+    pollingTime <- getPollingTime @f
+    HTTP.tryRequest pollingTime resp >>= checkCallback @f
 
 getResponse :: forall f m. (IsWebFrontEnd f, IsBot f m, HTTP.MonadHttp m) => m (Response f)
 getResponse = do
-  response <- HTTP.tryRequest =<< getUpdatesURL @f
+  pollingTime <- getPollingTime @f
+  response <- HTTP.tryRequest pollingTime =<< getUpdatesURL @f
   case eitherDecode response of
     Right decoded -> pure decoded
     Left err -> case eitherDecode response of
