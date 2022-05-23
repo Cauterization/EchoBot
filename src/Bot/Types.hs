@@ -8,7 +8,7 @@ import Dhall (FromDhall, Generic, Text)
 import Test.QuickCheck (Arbitrary)
 
 newtype ID e = ID {idVal :: Int}
-  deriving newtype (Show, Eq, Ord, Read, Enum, Num, FromJSON, Arbitrary, FromDhall)
+  deriving newtype (Show, Eq, Ord, Read, Enum, Num, FromJSON, Arbitrary)
 
 newtype Repeat = Repeat {unRepeat :: Int}
   deriving (Generic, Eq, Ord)
