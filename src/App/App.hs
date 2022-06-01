@@ -19,7 +19,7 @@ import App.Env
     newEnv,
   )
 import App.Opts
-  ( Options (Options, optConfigPath, optShowHelpMessage),
+  ( Options (..),
     runWithOpts,
   )
 import Bot.Bot (runBot)
