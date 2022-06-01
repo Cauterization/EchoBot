@@ -200,7 +200,7 @@ keyboard =
 hideKeyboard :: Text
 hideKeyboard =
   "&keyboard="
-    <> HTTP.percentEncode @Text "{\"buttons\":[],\"inline\":false}"
+    <> HTTP.stringEncode "{\"buttons\":[],\"inline\":false}"
 
 updateFrontEnv :: (Bot.HasEnv Vkontakte m, MonadThrow m) => GoodResponse -> m ()
 updateFrontEnv GoodResponse {..}
