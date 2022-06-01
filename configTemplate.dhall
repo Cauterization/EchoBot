@@ -3,6 +3,7 @@ let Mode       = < None  | Display | Write   | Both >
 let LoggerConf = { cVerbosity : Verbosity, cMode : Mode}
 let FrontEnd   = < Vkontakte | Telegram | Console >
 let VKConf     = { token : Text
+                 , groupID : Integer
                  }
 let TGConf     = { token : Text
                  }
@@ -28,6 +29,7 @@ in
 , cPollingTime = Some +45
 , cVKConfig = Some
     { cToken = ""
+    , groupID = +0
     }
 , cTGConfig = Some
    { cToken = ""
