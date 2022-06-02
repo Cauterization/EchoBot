@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeApplications #-}
 
 module App.App where
 
@@ -24,7 +26,7 @@ import App.Opts
   )
 import Bot.Bot (runBot)
 import Bot.FrontEnd (HasEnv (..), IsFrontEnd)
-import Bot.IO (IsBot)
+import Bot.IO (FrontEndIO (..), IsBot)
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import Control.Monad.Reader
   ( MonadIO (..),
@@ -39,6 +41,7 @@ import FrontEnd.Console.Main qualified as Console
 import FrontEnd.Telegram.Main qualified as TG
 import FrontEnd.Vkontakte.Main qualified as VK
 import Logger qualified
+import Wait (MonadWait)
 
 run :: IO ()
 run = do
@@ -82,3 +85,13 @@ instance Logger.HasLogger (App f) where
   mkLog verbosity text = do
     l <- asks envLogger
     liftIO $ l verbosity text
+
+deriving anyclass instance MonadWait (App f)
+
+deriving anyclass instance FrontEndIO VK.Vkontakte (App VK.Vkontakte)
+
+deriving anyclass instance FrontEndIO TG.Telegram (App TG.Telegram)
+
+instance FrontEndIO Console.Console (App Console.Console) where
+  getUpdates = Console.getConsoleUpdates
+  sendResponse = Console.sendConsoleResponse

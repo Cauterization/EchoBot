@@ -4,7 +4,7 @@ module FrontEnd.Vkontakte.Config
   )
 where
 
-import Bot.Types (ID (ID), Token)
+import Bot.Types (ID, Token)
 import Dhall (FromDhall, Generic)
 
 data VKGroup

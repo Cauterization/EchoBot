@@ -1,3 +1,5 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module FrontEnd.Console.Main where
 
 import Bot.Error (parse)
@@ -12,7 +14,6 @@ import Bot.FrontEnd
     HasEnv (getFrontEnv, getHelpMessage, getRepeatMessage, setFrontEnv),
     IsFrontEnd (..),
   )
-import Bot.IO (FrontEndIO (..))
 import Control.Lens ((%~), (<&>))
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Extra (ifM)
@@ -38,9 +39,11 @@ instance IsFrontEnd Console where
   type Update Console = Text
   getActions = chooseAction
 
-instance {-# OVERLAPPING #-} MonadIO m => FrontEndIO Console m where
-  getUpdates = pure <$> liftIO T.getLine
-  sendResponse = liftIO . T.putStrLn . ("λ:" <>)
+getConsoleUpdates :: MonadIO m => m [Text]
+getConsoleUpdates = pure <$> liftIO T.getLine
+
+sendConsoleResponse :: MonadIO m => Text -> m ()
+sendConsoleResponse = liftIO . T.putStrLn . ("λ:" <>)
 
 chooseAction ::
   (Monad m, HasEnv Console m, MonadThrow m) =>

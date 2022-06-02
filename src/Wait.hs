@@ -5,6 +5,5 @@ import Control.Monad.IO.Class (MonadIO (..))
 
 class MonadWait m where
   wait :: Int -> m ()
-
-instance MonadIO m => MonadWait m where
+  default wait :: MonadIO m => Int -> m ()
   wait = liftIO . threadDelay . (* 1000000)

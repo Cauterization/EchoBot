@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Bot.FrontEnd where
 
@@ -72,3 +74,6 @@ data Action f
   | UpdateRepeats (BotUser f) Repeat
   | HideKeyboard (BotUser f) Text
 
+deriving instance Show (BotUser f) => Show (Action f)
+
+deriving instance Eq (BotUser f) => Eq (Action f)

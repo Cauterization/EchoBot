@@ -1,3 +1,4 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module FrontEnd.Vkontakte.Env where
@@ -51,8 +52,12 @@ mkVkEnv App.Config {..} = case (cVKConfig, cPollingTime) of
   (_, Nothing) -> missingFieldError "Polling time"
   (Just VKConfig {..}, Just p) -> toEnv VKConfig {..} p <$> getReponseWithFrontData cToken cGroupID p
 
-getReponseWithFrontData :: (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) 
-    => Token -> ID VKGroup -> PollingTime -> m FrontDataResponse
+getReponseWithFrontData ::
+  (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) =>
+  Token ->
+  ID VKGroup ->
+  PollingTime ->
+  m FrontDataResponse
 getReponseWithFrontData (Token t) (ID groupID) pollingTime = do
   response <- HTTP.tryRequest pollingTime req
   either (const $ handleFrontDataError response) pure $ eitherDecode response
@@ -60,7 +65,7 @@ getReponseWithFrontData (Token t) (ID groupID) pollingTime = do
     req =
       "https://api.vk.com/method/groups.getLongPollServer"
         <> "?group_id="
-        <> T.show groupID 
+        <> T.show groupID
         <> "&access_token="
         <> t
         <> "&v=5.81"

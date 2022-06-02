@@ -1,7 +1,9 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module Bot.Web where
 
 import Bot.FrontEnd (HasEnv, IsFrontEnd (Update))
-import Bot.Types (Token, URL, PollingTime)
+import Bot.Types (PollingTime, Token, URL)
 import Control.Monad.Catch (MonadThrow)
 import Data.Aeson (FromJSON)
 import Data.ByteString.Lazy qualified as BSL

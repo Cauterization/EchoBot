@@ -69,7 +69,6 @@ library
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
-      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -78,11 +77,9 @@ library
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
-      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
-      ViewPatterns
   build-depends:
       QuickCheck
     , aeson
@@ -132,7 +129,6 @@ executable bot-exe
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
-      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -141,11 +137,9 @@ executable bot-exe
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
-      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
-      ViewPatterns
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
   build-depends:
       QuickCheck
@@ -180,6 +174,15 @@ test-suite bot-test
   main-is: Spec.hs
   other-modules:
       Bot.BotSpec
+      Bot.WebSpec
+      FrontEnd.Console.MainSpec
+      Mocks.Constants
+      Mocks.Gens
+      Mocks.Predicates
+      Mocks.Run
+      Mocks.TestBot
+      Mocks.TestFront
+      Mocks.With
       Paths_bot
   hs-source-dirs:
       test
@@ -199,7 +202,6 @@ test-suite bot-test
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
-      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -208,11 +210,9 @@ test-suite bot-test
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
-      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
-      ViewPatterns
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck

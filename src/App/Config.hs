@@ -1,3 +1,5 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module App.Config where
 
 import Bot.Types (PollingTime, Repeat)

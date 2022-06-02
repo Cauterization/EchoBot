@@ -1,3 +1,6 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeApplications #-}
+
 module FrontEnd.Vkontakte.Main where
 
 import Bot.Error

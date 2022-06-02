@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 
 module Logger
   ( debug,
@@ -26,6 +27,7 @@ import Data.Aeson (FromJSON (parseJSON), withObject, (.:))
 import Data.Time qualified as Time
 import Dhall (FromDhall, Generic)
 import Extended.Text qualified as T
+import Wait
 import Prelude hiding (error, log)
 
 data Verbosity
@@ -100,6 +102,8 @@ fromConfig Config {..} v t
 
 newtype LoggerMIO a = LoggerMIO {unLoggerMIO :: ReaderT Config IO a}
   deriving newtype (Functor, Applicative, Monad, MonadReader Config, MonadIO, MonadThrow, MonadCatch)
+
+deriving anyclass instance MonadWait LoggerMIO
 
 instance HasLogger LoggerMIO where
   mkLog v t = do

@@ -41,7 +41,6 @@ dependencies:
 - unordered-containers
 - lens
 - optparse-applicative
-
 - QuickCheck
 - generic-arbitrary
 - hspec
@@ -62,7 +61,6 @@ default-extensions:
 - FlexibleInstances
 - FunctionalDependencies
 - ImplicitParams
-- ImportQualifiedPost
 - LambdaCase
 - MultiParamTypeClasses
 - OverloadedStrings
@@ -71,11 +69,9 @@ default-extensions:
 - RecordWildCards
 - ScopedTypeVariables
 - StandaloneDeriving
-- TypeApplications
 - TypeFamilies
 - UndecidableInstances
 - UndecidableSuperClasses
-- ViewPatterns
 
 library:
   source-dirs: src

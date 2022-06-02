@@ -1,3 +1,6 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module Extended.HTTP
   ( module Network.HTTP.Types.URI,
     module Network.HTTP.Simple,
@@ -9,6 +12,7 @@ module Extended.HTTP
   )
 where
 
+import Bot.Types (PollingTime)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Aeson (ToJSON, encode)
 import Data.ByteString.Char8 qualified as BS8
@@ -21,7 +25,6 @@ import Logger qualified
 import Network.HTTP.Client.Conduit (HttpException (..), HttpExceptionContent (..), ResponseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Network.HTTP.Types.URI (urlEncode)
-import Bot.Types (PollingTime)
 
 type Url = String
 
@@ -39,8 +42,8 @@ instance (MonadIO m, Logger.HasLogger m) => MonadHttp m where
     req <- liftIO $ parseRequest initReq
     Logger.debug $ "Outcomming request:\n" .< req
     let timeout = responseTimeoutMicro $ 1000000 * (polling + 5)
-    response <- httpBS (setRequestResponseTimeout timeout req) 
-      <&> BSL.fromStrict . getResponseBody
+    response <-
+      httpBS (setRequestResponseTimeout timeout req)
+        <&> BSL.fromStrict . getResponseBody
     Logger.debug $ "Recieved raw response:\n" .< response
     pure response
-

@@ -1,3 +1,6 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Bot.Bot where
 
 import Bot.Error (BotError (BadCallbackError, ParsingError))

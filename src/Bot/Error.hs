@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 
 module Bot.Error where
 

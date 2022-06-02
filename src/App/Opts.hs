@@ -1,8 +1,7 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module App.Opts where
 
-import Control.Monad (when)
-import Extended.Text (Text)
-import Extended.Text qualified as T
 import Options.Applicative
 
 newtype Options = Options
@@ -13,7 +12,7 @@ configFileParser :: Parser FilePath
 configFileParser =
   strOption
     ( long "conf"
-   <> help "Configuration file location"
+        <> help "Configuration file location"
     )
 
 optionsParser :: Parser Options
