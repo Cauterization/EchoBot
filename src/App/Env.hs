@@ -24,11 +24,11 @@ data Env f = Env
   }
 
 newEnv :: forall f. IsFrontEnd f => Config -> Logger.LoggerMIO (Env f)
-newEnv Config {..} = do
+newEnv c@Config {..} = do
   let envLogger = Logger.fromConfig cLogger
       envDefaultRepeats = cDefaultRepeats
       envHelpMessage = cHelpMessage
       envRepeatMessage = cRepeatMessage
   envRepeats <- liftIO $ newIORef M.empty
-  envFront <- mkFrontEnv @f Config {..} >>= liftIO . newIORef
+  envFront <- mkFrontEnv @f c >>= liftIO . newIORef
   pure $ Env {..}

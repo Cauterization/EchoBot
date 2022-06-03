@@ -26,7 +26,7 @@ import App.Opts
   )
 import Bot.Bot (runBot)
 import Bot.FrontEnd (HasEnv (..), IsFrontEnd)
-import Bot.IO (FrontEndIO (..), IsBot)
+import Bot.IO (FrontEndIO (..), MonadBot)
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import Control.Monad.Reader
   ( MonadIO (..),
@@ -52,7 +52,7 @@ run = do
     Console -> start @Console.Console Config {..}
     Telegram -> start @TG.Telegram Config {..}
 
-start :: forall f. (IsBot f (App f)) => Config -> IO ()
+start :: forall f. (MonadBot f (App f)) => Config -> IO ()
 start Config {..} = do
   env <- Logger.runLoggerMIO cLogger $ newEnv @f Config {..}
   runReaderT (unApp $ runBot @f @(App f)) env

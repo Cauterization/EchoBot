@@ -10,27 +10,28 @@ import Bot.FrontEnd
     IsFrontEnd (getActions),
     getRepeatsFor,
   )
-import Bot.IO (FrontEndIO (getUpdates, sendResponse), IsBot)
+import Bot.IO (FrontEndIO (getUpdates, sendResponse), MonadBot)
 import Control.Monad (forever, replicateM_)
-import Control.Monad.Catch (handle)
+import Control.Monad.Catch (fromException, handleAll)
+import Extended.Text qualified as T
 import Logger ((.<))
 import Logger qualified
 import Wait (MonadWait (wait))
 
-runBot :: forall f m a. (IsBot f m) => m a
+runBot :: forall f m a. (MonadBot f m) => m a
 runBot = botHandler bot
 
-bot :: forall f m a. (IsBot f m) => m a
+bot :: forall f m a. (MonadBot f m) => m a
 bot = forever $ recieveActions @f >>= mapM_ (executeAction @f)
 
-recieveActions :: forall f m. IsBot f m => m [Action f]
+recieveActions :: forall f m. MonadBot f m => m [Action f]
 recieveActions = do
   Logger.info "Getting updates.."
   updates <- getUpdates @f
   Logger.info $ "Recieved " .< length updates <> " new updates."
   concat <$> mapM getActions updates
 
-executeAction :: forall f m. IsBot f m => Action f -> m ()
+executeAction :: forall f m. MonadBot f m => Action f -> m ()
 executeAction = \case
   UpdateRepeats user rep -> do
     Logger.info $ "New number of repeations for user " .< user <> " is " .< rep
@@ -56,16 +57,19 @@ executeAction = \case
     Logger.info $ "Sending repeat_message to " .< user
     sendResponse @f toSend
 
-botHandler :: forall f m a. IsBot f m => m a -> m a
-botHandler = handle $ \case
-  ParsingError t -> do
+botHandler :: forall f m a. MonadBot f m => m a -> m a
+botHandler = handleAll $ \err -> case fromException err of
+  Just (ParsingError t) -> do
     Logger.error t
     restartIn 30
-  BadCallbackError t -> do
+  Just (BadCallbackError t) -> do
     Logger.error t
+    restartIn 30
+  _ -> do
+    Logger.error $ T.show err
     restartIn 30
 
-restartIn :: (IsBot f m) => Int -> m a
+restartIn :: (MonadBot f m) => Int -> m a
 restartIn sec = do
   Logger.warning $ "Restarting in " .< sec <> " sec."
   wait sec

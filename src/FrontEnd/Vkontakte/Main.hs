@@ -27,6 +27,7 @@ import FrontEnd.Vkontakte.Env
     envTs,
     getReponseWithFrontData,
     mkVkEnv,
+    vkApiVersion,
   )
 import FrontEnd.Vkontakte.Internal
   ( Attachment (..),
@@ -141,7 +142,8 @@ prepareRequest update = do
         "?user_id=" .< userID,
         message,
         token,
-        "&v=5.81",
+        "&v=",
+        vkApiVersion,
         attachment
       ]
 

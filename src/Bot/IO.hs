@@ -30,7 +30,7 @@ import Wait (MonadWait (..))
 class FrontEndIO f (m :: Type -> Type) where
   getUpdates :: Monad m => m [Update f]
   default getUpdates ::
-    ( IsBot f m,
+    ( MonadBot f m,
       IsWebFrontEnd f,
       HTTP.MonadHttp m,
       Logger.HasLogger m,
@@ -44,12 +44,12 @@ class FrontEndIO f (m :: Type -> Type) where
     pure $ extractUpdates @f response
 
   sendResponse :: Text -> m ()
-  default sendResponse :: (IsBot f m, HTTP.MonadHttp m, IsWebFrontEnd f) => Text -> m ()
+  default sendResponse :: (MonadBot f m, HTTP.MonadHttp m, IsWebFrontEnd f) => Text -> m ()
   sendResponse resp = do
     pollingTime <- getPollingTime @f
     HTTP.tryRequest pollingTime resp >>= checkCallback @f
 
-type IsBot f m =
+type MonadBot f m =
   ( Monad m,
     MonadCatch m,
     Logger.HasLogger m,
@@ -59,7 +59,7 @@ type IsBot f m =
     HasEnv f m
   )
 
-getResponse :: forall f m. (IsWebFrontEnd f, IsBot f m, HTTP.MonadHttp m) => m (Response f)
+getResponse :: forall f m. (IsWebFrontEnd f, MonadBot f m, HTTP.MonadHttp m) => m (Response f)
 getResponse = do
   pollingTime <- getPollingTime @f
   response <- HTTP.tryRequest pollingTime =<< getUpdatesURL @f

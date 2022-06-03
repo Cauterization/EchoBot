@@ -46,6 +46,9 @@ data VKEnv = VKEnv
 
 makeLenses ''VKEnv
 
+vkApiVersion :: Text
+vkApiVersion = "5.81"
+
 mkVkEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) => App.Config -> m VKEnv
 mkVkEnv App.Config {..} = case (cVKConfig, cPollingTime) of
   (Nothing, _) -> missingFieldError "Whole vk config file"
@@ -68,7 +71,8 @@ getReponseWithFrontData (Token t) (ID groupID) pollingTime = do
         <> T.show groupID
         <> "&access_token="
         <> t
-        <> "&v=5.81"
+        <> "&v="
+        <> vkApiVersion
     failMsg = "An unknown error occurred while receiving Vkontakte's front end data. Retry after 30 sec."
     handleFrontDataError response = do
       Logger.error $ either (const failMsg) unVkMkEnvError $ eitherDecode response
