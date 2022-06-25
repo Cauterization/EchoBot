@@ -40,9 +40,6 @@ executeAction = \case
     Logger.info $ "Hiding keyboard from " .< user
     sendResponse @f toSend
   SendEcho user text toSend -> do
-    Logger.info $ "Sending echo:\n" <> text <> "\nto: " .< user
-    sendResponse @f toSend
-  SendRepeatEcho user text toSend -> do
     rep <- getRepeatsFor user
     Logger.info $
       "Sending echo:\n" <> text

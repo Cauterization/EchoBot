@@ -68,7 +68,6 @@ getRepeatsFor u = getRepeats @f u >>= fmap unRepeat . maybe (defaultRepeats @f) 
 -- | Bot actions
 data Action f
   = SendEcho (BotUser f) Text Text
-  | SendRepeatEcho (BotUser f) Text Text
   | SendHelpMessage (BotUser f) Text
   | SendRepeatMessage (BotUser f) Text
   | UpdateRepeats (BotUser f) Repeat

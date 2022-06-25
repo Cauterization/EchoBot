@@ -4,12 +4,7 @@ module FrontEnd.Console.Main where
 
 import Bot.Error (parse)
 import Bot.FrontEnd
-  ( Action
-      ( SendHelpMessage,
-        SendRepeatEcho,
-        SendRepeatMessage,
-        UpdateRepeats
-      ),
+  ( Action (..),
     BotIO (NonWeb),
     HasEnv (getFrontEnv, getHelpMessage, getRepeatMessage, setFrontEnv),
     IsFrontEnd (..),
@@ -65,7 +60,7 @@ getAction ::
 getAction = \case
   "/help" -> pure . SendHelpMessage NotRequired <$> getHelpMessage
   "/repeat" -> flipMode >> (pure . SendRepeatMessage NotRequired <$> getRepeatMessage)
-  text -> pure $ pure $ SendRepeatEcho NotRequired text text
+  text -> pure $ pure $ SendEcho NotRequired text text
 
 getNewReps ::
   (Monad m, HasEnv Console m, MonadThrow m) =>

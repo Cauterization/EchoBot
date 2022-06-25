@@ -1,5 +1,5 @@
 module FrontEnd.Vkontakte.Config
-  ( VKConfig (..)
+  ( VKConfig (..),
   )
 where
 

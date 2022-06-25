@@ -11,6 +11,7 @@ import Control.Lens ((.~))
 import Control.Monad.Catch (MonadThrow (..))
 import Data.Aeson (KeyValue ((.=)), object)
 import Data.ByteString.Lazy qualified as BSL
+import Data.Maybe (fromMaybe)
 import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
 import Extended.Text qualified as T
@@ -76,11 +77,8 @@ getActions = \case
   u@(HelpUpdate _ userID chatID) -> do
     pure . Bot.SendHelpMessage (BotUser userID chatID)
       <$> prepareRequest u
-  u@(EchoUpdate _ userID chatID _ (Just text)) ->
-    pure . Bot.SendRepeatEcho (BotUser userID chatID) text
-      <$> prepareRequest u
-  u@(EchoUpdate _ userID chatID _ Nothing) ->
-    pure . Bot.SendEcho (BotUser userID chatID) ""
+  u@(EchoUpdate _ userID chatID _ mbtext) ->
+    pure . Bot.SendEcho (BotUser userID chatID) (fromMaybe "" mbtext)
       <$> prepareRequest u
   u@(UpdateRepeats _ userID chatID _ newRep) -> do
     req <- prepareRequest u

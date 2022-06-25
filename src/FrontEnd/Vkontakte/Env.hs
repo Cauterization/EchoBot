@@ -55,8 +55,9 @@ mkVkEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWa
 mkVkEnv App.Config {..} = case (cVKConfig, cPollingTime) of
   (Nothing, _) -> missingFieldError "Whole vk config file"
   (_, Nothing) -> missingFieldError "Polling time"
-  (Just VKConfig {..}, Just p) -> toEnv VKConfig {..} p 
-    <$> getReponseWithFrontData cToken (fromInteger cGroupID) p
+  (Just VKConfig {..}, Just p) ->
+    toEnv VKConfig {..} p
+      <$> getReponseWithFrontData cToken (fromInteger cGroupID) p
 
 getReponseWithFrontData ::
   (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) =>

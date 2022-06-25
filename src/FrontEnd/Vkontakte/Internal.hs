@@ -100,7 +100,7 @@ data Message = Message
 data Attachment = Attachment
   { _type :: !T.Text,
     _id :: !(ID Attachment),
-    owner :: !(ID User),
+    owner :: !(Maybe (ID User)),
     acessKey :: !(Maybe T.Text)
   }
   deriving (Show, Generic)
@@ -112,7 +112,7 @@ instance FromJSON Attachment where
     let _type = toText t
     inner <- v .: t
     _id <- inner .: "sticker_id" <|> inner .: "id"
-    owner <- inner .: "owner_id" <|> inner .: "from_id"
+    owner <- inner .:? "owner_id"
     acessKey <- inner .:? "access_key"
     pure $ Attachment {..}
 

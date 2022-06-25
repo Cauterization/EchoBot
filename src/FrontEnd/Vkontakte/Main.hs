@@ -104,9 +104,6 @@ getActions u = case u of
   HelpUpdate userID ->
     pure . Bot.SendHelpMessage userID
       <$> prepareRequest u
-  EchoUpdate text userID [] ->
-    pure . Bot.SendRepeatEcho userID text
-      <$> prepareRequest u
   EchoUpdate text userID _ ->
     pure . Bot.SendEcho userID text
       <$> prepareRequest u
@@ -181,7 +178,7 @@ prepareAttachment = \case
     attachmentsToReq = T.intercalate "," . map attachmentToReq
     attachmentToReq Attachment {..} =
       mconcat
-        [_type, T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
+        [_type, maybe "" T.show owner, "_", T.show _id, maybe "" ("_" <>) acessKey]
 
 keyboard :: Text
 keyboard =
