@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Bot.FrontEnd where
 

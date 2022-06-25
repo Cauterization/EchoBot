@@ -1,5 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-
 module FrontEnd.Console.Main where
 
 import Bot.Error (parse)

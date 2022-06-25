@@ -1,6 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE ViewPatterns #-}
-
 module Extended.HTTP
   ( module Network.HTTP.Types.URI,
     module Network.HTTP.Simple,

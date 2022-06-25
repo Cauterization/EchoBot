@@ -1,6 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE TypeApplications #-}
-
 module FrontEnd.Telegram.Main where
 
 import Bot.Error (BotError (BadCallbackError), parse)

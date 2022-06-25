@@ -1,4 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Extended.Text

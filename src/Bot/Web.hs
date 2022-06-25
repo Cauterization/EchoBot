@@ -1,5 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-
 module Bot.Web where
 
 import Bot.FrontEnd (HasEnv, IsFrontEnd (Update))

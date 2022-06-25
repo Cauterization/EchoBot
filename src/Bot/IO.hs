@@ -1,6 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Bot.IO where
 
 import Bot.Error (BotError (ParsingError))

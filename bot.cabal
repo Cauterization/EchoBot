@@ -69,6 +69,7 @@ library
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
+      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -77,9 +78,11 @@ library
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
+      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
+      ViewPatterns
   build-depends:
       QuickCheck
     , aeson
@@ -129,6 +132,7 @@ executable bot-exe
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
+      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -137,9 +141,11 @@ executable bot-exe
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
+      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
+      ViewPatterns
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
   build-depends:
       QuickCheck
@@ -202,6 +208,7 @@ test-suite bot-test
       FlexibleInstances
       FunctionalDependencies
       ImplicitParams
+      ImportQualifiedPost
       LambdaCase
       MultiParamTypeClasses
       OverloadedStrings
@@ -210,9 +217,11 @@ test-suite bot-test
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
+      TypeApplications
       TypeFamilies
       UndecidableInstances
       UndecidableSuperClasses
+      ViewPatterns
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck

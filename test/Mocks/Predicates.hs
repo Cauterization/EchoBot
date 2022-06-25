@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Mocks.Predicates where
 
 import Bot.FrontEnd (Update)
