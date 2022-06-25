@@ -6,7 +6,6 @@ module Extended.Text
     module Data.Text.IO,
     module Data.Text.Encoding,
     show,
-    read,
     readEither,
   )
 where
@@ -22,9 +21,6 @@ import Prelude qualified
 
 show :: Show a => a -> Text
 show = pack . Prelude.show
-
-read :: Read a => Text -> a
-read = Prelude.read . unpack
 
 readEither :: Read a => Text -> Either Text a
 readEither = left pack . Read.readEither . unpack
