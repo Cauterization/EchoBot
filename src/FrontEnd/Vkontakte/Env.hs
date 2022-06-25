@@ -24,7 +24,7 @@ import Data.Aeson (FromJSON (parseJSON), eitherDecode, withObject, (.:))
 import Extended.HTTP qualified as HTTP
 import Extended.Text (Text)
 import Extended.Text qualified as T
-import FrontEnd.Vkontakte.Config (VKConfig (..), VKGroup)
+import FrontEnd.Vkontakte.Config (VKConfig (..))
 import FrontEnd.Vkontakte.Internal
   ( FrontDataResponse (..),
     Key,
@@ -33,6 +33,8 @@ import FrontEnd.Vkontakte.Internal
   )
 import Logger qualified
 import Wait (MonadWait (..))
+
+data VKGroup
 
 data VKEnv = VKEnv
   { envToken :: !Token,
@@ -53,7 +55,8 @@ mkVkEnv :: (Monad m, MonadThrow m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWa
 mkVkEnv App.Config {..} = case (cVKConfig, cPollingTime) of
   (Nothing, _) -> missingFieldError "Whole vk config file"
   (_, Nothing) -> missingFieldError "Polling time"
-  (Just VKConfig {..}, Just p) -> toEnv VKConfig {..} p <$> getReponseWithFrontData cToken cGroupID p
+  (Just VKConfig {..}, Just p) -> toEnv VKConfig {..} p 
+    <$> getReponseWithFrontData cToken (fromInteger cGroupID) p
 
 getReponseWithFrontData ::
   (Monad m, HTTP.MonadHttp m, Logger.HasLogger m, MonadWait m) =>
@@ -87,7 +90,7 @@ toEnv VKConfig {..} p FrontDataResponse {..} =
       _envKey = key,
       _envServer = server,
       envPollingTime = p,
-      envGroupID = cGroupID
+      envGroupID = fromInteger cGroupID
     }
 
 newtype VkMkEnvError = VkMkEnvError {unVkMkEnvError :: Text}

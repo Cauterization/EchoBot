@@ -29,7 +29,7 @@ in
 , cPollingTime = Some +45
 , cVKConfig = Some
     { cToken = ""
-    , groupID = +0
+    , cGroupID = +0
     }
 , cTGConfig = Some
    { cToken = ""

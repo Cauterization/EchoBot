@@ -2,7 +2,7 @@
 Test project for Metalamp. Description of requirements aviable [here](https://coda.io/@metalamp/education/3-14) and [here](https://coda.io/@metalamp/education/5-16).
 
 ## Getting started
-All you need to run bot is write your tokens into configuration file (or just do nothing on this step if you want to work in console mode). After that just run the main.hs file.
+All you need to run bot is write your tokens into configuration file (or just do nothing on this step if you want to work in console mode). After that just run main.hs file with --conf ./configTemplate.dhall command line argument.
 
 ## Architecture
 Bot relies heavily on MTL-pattern. At current moment it can work in console mode and with vkontakte and telegram messangers.

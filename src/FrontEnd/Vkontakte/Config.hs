@@ -1,16 +1,13 @@
 module FrontEnd.Vkontakte.Config
-  ( VKConfig (..),
-    VKGroup,
+  ( VKConfig (..)
   )
 where
 
-import Bot.Types (ID, Token)
+import Bot.Types (Token)
 import Dhall (FromDhall, Generic)
-
-data VKGroup
 
 data VKConfig = VKConfig
   { cToken :: Token,
-    cGroupID :: ID VKGroup
+    cGroupID :: Integer
   }
   deriving (Show, Generic, FromDhall)
